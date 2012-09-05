@@ -169,7 +169,7 @@ struct PSInput
 
     [<Fact>]
     let ``Should generate shader input elements from input type``() =            
-        let inputElements = ShaderTranslator.inputElements typeof<Simplistic.VSInput> typeof<TestVertex>
+        let inputElements = InputElements.map typeof<TestVertex>
         let input = Seq.head(inputElements)
         Assert.Equal("POSITION", input.SemanticName)
         Assert.Equal(DXGI.Format.R32G32B32_Float, input.Format)
@@ -228,7 +228,7 @@ struct PSInput
     let ``Should generate input elements with normal and UVs``() = 
         let inputType = typeof<Shaders.BlinnPhong.VSInput>
         let vertexType = typeof<TestVertex>
-        let inputElements = ShaderTranslator.inputElements inputType vertexType
+        let inputElements = InputElements.map vertexType
         match inputElements |> Seq.toList with
         | [position;normal;uv] ->
             Assert.Equal("POSITION", position.SemanticName)

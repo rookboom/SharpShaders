@@ -22,6 +22,7 @@
     <WarningLevel>3</WarningLevel>
     <DocumentationFile>bin\Debug\SharpShaders.XML</DocumentationFile>
     <PlatformTarget>AnyCPU</PlatformTarget>
+    <OtherFlags>--nowarn:9</OtherFlags>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>

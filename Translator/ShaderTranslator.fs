@@ -14,6 +14,76 @@ open System.Diagnostics
 open System.Runtime.InteropServices
 open SharpShaders.Math
 
+//=================================================================================================
+module Semantics =
+    let private inputSemantics = dict ["Position", "POSITION";
+                                       "PositionHS", "SV_POSITION"
+                                       "PositionWS", "TEXCOORD"
+                                       "UV", "TEXCOORD"
+                                       "Normal", "NORMAL"]
+
+
+    let map fields =
+        let gather (semantics,i) fieldName =
+            match inputSemantics.TryGetValue(fieldName) with
+            | false, _ -> ""::semantics, i
+            | true, "TEXCOORD" -> (sprintf "TEXCOORD%d" i)::semantics, i+1
+            | true, s -> s::semantics, i
+        let semantics, i = fields |> List.fold gather ([],0)
+        semantics |> List.rev
+
+//=================================================================================================
+module InputFormats =
+    let private inputFormats = dict ["UV", DXGI.Format.R32G32_Float]
+    let map name = 
+        if inputFormats.ContainsKey(name) then
+            inputFormats.[name]
+        else
+            DXGI.Format.R32G32B32_Float
+
+//=================================================================================================
+module InputElements =
+    /// By sticking to some conventions we can determine the shader input elements
+    /// from the vertex type.
+    /// The input elements offsets are calculated by matching the names in the vertex
+    /// buffer element type, and calculating the offset by reflection.
+    /// This allows us to use different vertex shaders at runtime on geometry which vertex 
+    /// buffer layout is determined at import time.
+    /// Note that this implies that vertex shader input element names have to match the
+    /// names in the vertex <see cref=" Vertex "> vertex </see> elements.
+    let map(vertexType:Type) =
+        let properties = vertexType.GetProperties()
+        let toInputElement i (semantic, name) =
+            /// Semantic names like TEXCOORD cannot have a numeric suffix when used
+            /// with an InputElement. Instead, the suffix is stored as the semantic index.
+            let semanticName, semanticIndex = 
+                let numbers, letters = semantic
+                                       |> Seq.toList
+                                       |> List.partition Char.IsDigit
+                String(letters |> List.toArray),
+                match numbers with
+                                    | [x:_] -> int(Char.GetNumericValue(x))
+                                    | _ -> 0
+            let alignedByteOffset =
+                let offset o (p:PropertyInfo) =
+                    o + Marshal.SizeOf(p.PropertyType)
+                properties
+                |> Seq.takeWhile(fun p -> not(p.Name = name))
+                |> Seq.fold offset 0                         
+            InputElement(SemanticName = semanticName,
+                         SemanticIndex = semanticIndex,
+                         Format = InputFormats.map name,
+                         AlignedByteOffset = alignedByteOffset,
+                         Classification = InputClassification.PerVertexData)
+        let propertyNames = properties
+                            |> Array.toList
+                            |> List.map (fun p -> p.Name)
+        let semantics = Semantics.map propertyNames 
+        propertyNames
+        |> List.zip semantics
+        |> Seq.mapi toInputElement
+
+
 /// We need a dummy type that represents a texture. We could use a DirectX Texture2D object 
 /// but is expensive to instantiate and this class will only be used for unit testing.
 type Texture(color:float4) = 
@@ -42,32 +112,11 @@ module ShaderTranslator =
                                     "Single", "float"]
     let private methodMapping = dict ["op_Multiply", "mul"
                                       "saturatef", "saturate"]
-    let private inputSemantics = dict ["Position", "POSITION";
-                                       "PositionHS", "SV_POSITION"
-                                       "PositionWS", "TEXCOORD"
-                                       "UV", "TEXCOORD"
-                                       "Normal", "NORMAL"]
-    let private inputFormats = dict ["UV", DXGI.Format.R32G32_Float]
-    let mapInputFormat name = 
-        if inputFormats.ContainsKey(name) then
-            inputFormats.[name]
-        else
-            DXGI.Format.R32G32B32_Float
-
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
             d.[key]
         else
             key
-    let private mapSemantics fields =
-        let gather (semantics,i) fieldName =
-            match inputSemantics.TryGetValue(fieldName) with
-            | false, _ -> ""::semantics, i
-            | true, "TEXCOORD" -> (sprintf "TEXCOORD%d" i)::semantics, i+1
-            | true, s -> s::semantics, i
-        let semantics, i = fields |> List.fold gather ([],0)
-        semantics |> List.rev
-
         
     let private mapMethod = valueOrKey methodMapping
     let private mapType = valueOrKey typeMapping
@@ -97,7 +146,7 @@ module ShaderTranslator =
                 
         let semantics = properties
                         |> List.map (fun p -> p.Name)
-                        |> mapSemantics 
+                        |> Semantics.map 
         properties
         |> List.zip semantics
         |> List.map field
@@ -142,45 +191,6 @@ cbuffer %s
         constructorParams(shaderType)
         |> Seq.filter (fun p -> p.ParameterType = typeof<SamplerStateDescription>)
         |> Seq.mapi sampler
-
-    /// By sticking to some conventions we can also determine the shader input elements
-    /// from the F# type vertex shader and vertex buffer types.
-    /// The input elements offsets are calculated by matching the names in the vertex
-    /// buffer element type, and calculating the offset by reflection.
-    /// This allows us to use different vertex shaders at runtime on geometry which vertex 
-    /// buffer layout is determined at import time.
-    /// Note that this implies that vertex shader input element names have to match the
-    /// names in the vertex <see cref=" Vertex "> vertex </see> elements.
-    let inputElements(vertexShaderInputType:Type) (vertexBufferType:Type) =
-        let toInputElement i (semantic, name) =
-            /// Semantic names like TEXCOORD cannot have a numeric suffix when used
-            /// with an InputElement. Instead, the suffix is stored as the semantic index.
-            let semanticName, semanticIndex = 
-                let numbers, letters = semantic
-                                       |> Seq.toList
-                                       |> List.partition Char.IsDigit
-                String(letters |> List.toArray),
-                match numbers with
-                                    | [x:_] -> int(Char.GetNumericValue(x))
-                                    | _ -> 0
-            let alignedByteOffset =
-                let offset o (p:PropertyInfo) =
-                    o + Marshal.SizeOf(p.PropertyType)
-                vertexBufferType.GetProperties()
-                |> Seq.takeWhile(fun p -> not(p.Name = name))
-                |> Seq.fold offset 0                         
-            InputElement(SemanticName = semanticName,
-                         SemanticIndex = semanticIndex,
-                         Format = mapInputFormat name,
-                         AlignedByteOffset = alignedByteOffset,
-                         Classification = InputClassification.PerVertexData)
-        let propertyNames = vertexShaderInputType.GetProperties()
-                            |> Array.toList
-                            |> List.map (fun p -> p.Name)
-        let semantics = mapSemantics propertyNames 
-        propertyNames
-        |> List.zip semantics
-        |> Seq.mapi toInputElement
 
     /// Generate HLSL for F# type
     let formatStruct(t:Type) = 

@@ -20,9 +20,9 @@
     <OutputPath>bin\Debug\</OutputPath>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>AnyCPU</PlatformTarget>
+    <PlatformTarget>x64</PlatformTarget>
     <DocumentationFile>bin\Debug\MiniCubeTexture.XML</DocumentationFile>
-    <Prefer32Bit>true</Prefer32Bit>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -51,27 +51,34 @@
     </None>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Shaders\Shaders.fsproj">
+      <Name>Shaders</Name>
+      <Project>{86ad24f8-973c-4e67-875c-7cbfdf91a171}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+    <ProjectReference Include="..\..\Translator\SharpShaders.fsproj">
+      <Name>SharpShaders</Name>
+      <Project>{a80d56d4-e3ac-4f98-ae26-93962f468e97}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
     </Reference>
-    <Reference Include="Shaders">
-      <HintPath>..\..\bin\Shaders.dll</HintPath>
-    </Reference>
     <Reference Include="SharpDX">
-      <HintPath>..\..\bin\SharpDX.dll</HintPath>
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX.D3DCompiler">
-      <HintPath>..\..\bin\SharpDX.D3DCompiler.dll</HintPath>
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.D3DCompiler.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Direct2D1">
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.Direct2D1.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX.Direct3D11">
-      <HintPath>..\..\bin\SharpDX.Direct3D11.dll</HintPath>
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.Direct3D11.dll</HintPath>
     </Reference>
     <Reference Include="SharpDX.DXGI">
-      <HintPath>..\..\bin\SharpDX.DXGI.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpShaders">
-      <HintPath>..\..\bin\SharpShaders.dll</HintPath>
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.DXGI.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
