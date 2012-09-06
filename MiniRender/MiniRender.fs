@@ -105,12 +105,10 @@ type MiniRender(windowHandle, width, height) =
 
     do deviceContext.PixelShader.SetSampler(0, linearSampler)
 
-    let createBuffer setBuffer i (constants:'a)  =
+    let createBuffer (constants:'a)  =
         let buffer = createConstantBuffer(sizeof<'a>)
         disposables.Add(buffer)
-        updateShaderConstants buffer constants
-        do setBuffer i buffer
-        updateShaderConstants buffer
+        buffer
 
     interface IDisposable with
         member m.Dispose() =
@@ -136,24 +134,47 @@ type MiniRender(windowHandle, width, height) =
         disposables.Add(vertexShader)
         do deviceContext.VertexShader.Set(vertexShader)
 
-        let setBuffer i b = deviceContext.VertexShader.SetConstantBuffer(i,b)
-        createBuffer setBuffer 0 constants
+        let buffer = createBuffer constants
+        deviceContext.VertexShader.SetConstantBuffer(0,buffer)
+        // upload the initial constants
+        updateShaderConstants buffer constants
+        // return callback to update future constants
+        updateShaderConstants buffer
 
 
     /// Creates and initializes the pixel shader and the scene and material constants.
     /// Returns callbacks for updating each of the constants
     member m.createPixelShader code constants =
-        let pixelShader =
+        let pixelShader, cb0 =
             let psByteCode = compile code "pixel" "ps_5_0"
             disposables.Add(psByteCode)
-            new PixelShader(device, psByteCode)
+
+            use shaderReflection = new ShaderReflection(psByteCode)
+            let constantBufferName(i:int) =
+                let cb = shaderReflection.GetConstantBuffer(i)
+                cb.Description.Name
+
+            new PixelShader(device, psByteCode),
+            constantBufferName 0
         disposables.Add(pixelShader)
         do deviceContext.PixelShader.Set(pixelShader)
 
-        let setBuffer i b = deviceContext.PixelShader.SetConstantBuffer(i,b)
         let scene, mat = constants
-        createBuffer setBuffer 0 scene,
-        createBuffer setBuffer 1 mat
+        let sceneBuffer = createBuffer scene
+        let matBuffer = createBuffer mat
+        let sceneIndex, matIndex = 
+            if cb0 = scene.GetType().Name then
+                0,1
+            else
+                1,0
+        deviceContext.PixelShader.SetConstantBuffer(sceneIndex,sceneBuffer)
+        deviceContext.PixelShader.SetConstantBuffer(matIndex,matBuffer)
+        // upload the initial constants
+        updateShaderConstants sceneBuffer scene
+        updateShaderConstants matBuffer mat
+        // return callback to update future constants
+        (updateShaderConstants sceneBuffer),
+        (updateShaderConstants matBuffer)
 
     /// Loads texture files and adds them to the pixel shader stage
     member m.createTextures textureFiles =

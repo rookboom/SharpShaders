@@ -5,12 +5,12 @@
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>2f026469-efc2-454e-891e-763170c72f47</ProjectGuid>
+    <ProjectGuid>79711469-630a-416d-b517-abd8e56062c2</ProjectGuid>
     <OutputType>WinExe</OutputType>
-    <RootNamespace>MiniCubeTexture</RootNamespace>
-    <AssemblyName>MiniCubeTexture</AssemblyName>
+    <RootNamespace>ColoredCube</RootNamespace>
+    <AssemblyName>ColoredCube</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>MiniCubeTexture</Name>
+    <Name>ColoredCube</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -21,7 +21,7 @@
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
-    <DocumentationFile>bin\Debug\MiniCubeTexture.XML</DocumentationFile>
+    <DocumentationFile>bin\Debug\ColoredCube.XML</DocumentationFile>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
@@ -31,9 +31,9 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <PlatformTarget>x64</PlatformTarget>
-    <DocumentationFile>bin\Release\MiniCubeTexture.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <DocumentationFile>bin\Release\ColoredCube.XML</DocumentationFile>
+    <Prefer32Bit>true</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
@@ -41,16 +41,33 @@
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
     <Compile Include="Program.fs" />
-    <None Include="..\Assets\Textures\GeneticaMortarlessBlocks.jpg">
-      <Link>GeneticaMortarlessBlocks.jpg</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="..\..\External\d3dcompiler_45.dll">
       <Link>d3dcompiler_45.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="mscorlib" />
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="SharpDX">
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.dll</HintPath>
+    </Reference>
+    <Reference Include="SharpDX.Direct3D11">
+      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.Direct3D11.dll</HintPath>
+    </Reference>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Numerics" />
+    <Reference Include="System.Windows.Forms" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\MiniRender\MiniRender.fsproj">
+      <Name>MiniRender</Name>
+      <Project>{95e36121-9045-4167-8972-fc8efae34b32}</Project>
+      <Private>True</Private>
+    </ProjectReference>
     <ProjectReference Include="..\..\Shaders\Shaders.fsproj">
       <Name>Shaders</Name>
       <Project>{86ad24f8-973c-4e67-875c-7cbfdf91a171}</Project>
@@ -59,35 +76,6 @@
     <ProjectReference Include="..\..\Translator\SharpShaders.fsproj">
       <Name>SharpShaders</Name>
       <Project>{a80d56d4-e3ac-4f98-ae26-93962f468e97}</Project>
-      <Private>True</Private>
-    </ProjectReference>
-    <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="SharpDX">
-      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.D3DCompiler">
-      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.D3DCompiler.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.Direct2D1">
-      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.Direct2D1.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.Direct3D11">
-      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.Direct3D11.dll</HintPath>
-    </Reference>
-    <Reference Include="SharpDX.DXGI">
-      <HintPath>..\..\External\SharpDX\Win8Desktop-net20\SharpDX.DXGI.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Windows.Forms" />
-    <ProjectReference Include="..\..\MiniRender\MiniRender.fsproj">
-      <Name>MiniRender</Name>
-      <Project>{95e36121-9045-4167-8972-fc8efae34b32}</Project>
       <Private>True</Private>
     </ProjectReference>
   </ItemGroup>

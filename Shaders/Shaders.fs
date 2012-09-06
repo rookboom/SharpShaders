@@ -90,6 +90,54 @@ module BlinnPhong =
             let color = albedo.rgb*intensity
             float4(color, 1.0f)
 
+module Diffuse =
+    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
+    type SceneConstants =
+        [<FieldOffset(0)>]  val LightDirection : float3
+        with
+        new(lightDir) = { LightDirection = lightDir}
+
+    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
+    type MaterialConstants =
+        [<FieldOffset(0)>]  val Diffuse : float3
+        with
+        new(diffuse) = { Diffuse = diffuse}
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type ObjectConstants(wvp:float4x4, w:float4x4) =
+        member m.WorldViewProjection = wvp
+        member m.World = w
+    
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type VSInput(p:float4, n:float3) =
+        member m.Position = p
+        member m.Normal = n
+
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type PSInput(p:float4, wp:float3, n:float3) =
+        member m.PositionHS = p
+        member m.PositionWS = wp
+        member m.Normal = n
+
+    type Shader(scene:SceneConstants,
+                obj:ObjectConstants,
+                mat:MaterialConstants) =
+        [<ReflectedDefinition>]
+        member m.vertex(input:VSInput) =
+            let worldPos = input.Position * obj.World
+            PSInput(input.Position * obj.WorldViewProjection,
+                    worldPos.xyz,
+                    input.Normal * float3x3(obj.World))    
+
+        [<ReflectedDefinition>]
+        member m.pixel(input:PSInput) =
+            let color = 
+                input.Normal 
+                |> normalize
+                |> dot -scene.LightDirection
+                |> mul mat.Diffuse
+            float4(color, 1.0f)
+
 module Simplistic =
     //===================================================
     [<Struct>]

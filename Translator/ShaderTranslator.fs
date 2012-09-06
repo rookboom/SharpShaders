@@ -51,8 +51,9 @@ module InputElements =
     /// buffer layout is determined at import time.
     /// Note that this implies that vertex shader input element names have to match the
     /// names in the vertex <see cref=" Vertex "> vertex </see> elements.
-    let map(vertexType:Type) =
-        let properties = vertexType.GetProperties()
+    let map(vertexType:Type) (vertexShaderInputType:Type) =
+        let vertexProperties = vertexType.GetProperties()
+        let shaderProperties = vertexShaderInputType.GetProperties()
         let toInputElement i (semantic, name) =
             /// Semantic names like TEXCOORD cannot have a numeric suffix when used
             /// with an InputElement. Instead, the suffix is stored as the semantic index.
@@ -67,7 +68,7 @@ module InputElements =
             let alignedByteOffset =
                 let offset o (p:PropertyInfo) =
                     o + Marshal.SizeOf(p.PropertyType)
-                properties
+                vertexProperties
                 |> Seq.takeWhile(fun p -> not(p.Name = name))
                 |> Seq.fold offset 0                         
             InputElement(SemanticName = semanticName,
@@ -75,7 +76,7 @@ module InputElements =
                          Format = InputFormats.map name,
                          AlignedByteOffset = alignedByteOffset,
                          Classification = InputClassification.PerVertexData)
-        let propertyNames = properties
+        let propertyNames = shaderProperties
                             |> Array.toList
                             |> List.map (fun p -> p.Name)
         let semantics = Semantics.map propertyNames 
@@ -370,7 +371,8 @@ struct %s
                     let shaderSignature(mi:MethodInfo) =
                         let returnType = mi.ReturnType
                         let annotation = 
-                            if returnType = typeof<float4> then
+                            if returnType = typeof<float4> || 
+                               returnType = typeof<Color4> then
                                 " : SV_TARGET"
                             else
                                 ""
