@@ -13,7 +13,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "MiniRender", "MiniRender\Mi
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ColoredCube", "Samples\ColoredCube\ColoredCube.fsproj", "{79711469-630A-416D-B517-ABD8E56062C2}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "TexturedCube", "Samples\TexturedCube\TexturedCube.fsproj", "{2F026469-EFC2-454E-891E-763170C72F47}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Golfball", "Samples\Golfball\Golfball.fsproj", "{2F026469-EFC2-454E-891E-763170C72F47}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

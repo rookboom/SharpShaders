@@ -10,7 +10,7 @@
     <RootNamespace>MiniCubeTexture</RootNamespace>
     <AssemblyName>MiniCubeTexture</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <Name>TexturedCube</Name>
+    <Name>Golfball</Name>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
