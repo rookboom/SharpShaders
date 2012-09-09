@@ -51,6 +51,7 @@ module Math =
                                                   v.z.saturate())
         member m.normalize() = float3.normalize m
         member m.saturate() = float3.saturate m
+        member m.lerp(dest:float3, t) = m*t + (1.0f-t)*dest
         static member zero = float3(0.0f,0.0f,0.0f)
        
     let dot(v1:float3) (v2:float3) = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
@@ -65,12 +66,21 @@ module Math =
         val w : float32 
         new (x,y,z,w) = { x = x; y = y; z = z; w = w }
         new (f:float3, w) = { x = f.x; y = f.y; z = f.z; w = w }
+        static member (*) (v1:float4, v2:float4) =
+            float4(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z, v1.w*v2.w)
         new(v:Vector4) ={ x = v.X; y = v.Y; z = v.Z; w = v.W }
 
+        static member (*) (s:float32, v:float4) =
+            float4(s*v.x, s*v.y, s*v.z, s*v.w)
+        static member (*) (v:float4, s:float32) = s*v
+        static member (+) (v1:float4, v2:float4) = 
+            float4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w)
         member m.xyz = float3(m.x, m.y, m.z)
         member m.rgb = m.xyz
+        member m.a = m.w
         static member zero = float4(0.0f,0.0f,0.0f,0.0f)
         member m.saturate() = float4.saturate m
+        member m.lerp(dest:float4, t) = m*t + (1.0f-t)*dest
         static member saturate(v:float4) = float4(v.x.saturate(),
                                                   v.y.saturate(),
                                                   v.z.saturate(),
@@ -79,6 +89,8 @@ module Math =
 
     let inline saturate< ^T when ^T :(member saturate : unit -> ^T)> (x:^T) =
         (^T : (member saturate : unit -> ^T) (x))
+    let inline lerp< ^T when ^T :(member lerp : ^T*float32 -> ^T)> (x:^T, d:^T,t:float32) =
+        (^T : (member lerp : ^T*float32 -> ^T) (x,d,t))
     let saturatef(x:float32) = x.saturate()
 
     [<Struct; StructLayout(LayoutKind.Sequential)>]

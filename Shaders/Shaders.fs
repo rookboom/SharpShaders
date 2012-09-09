@@ -61,6 +61,8 @@ module BlinnPhong =
         [<ReflectedDefinition>]
         member m.pixel(input:PSInput) =
             let worldPos = input.PositionWS
+            let normal = input.Normal
+                         |> normalize
             let lightVec = worldPos - scene.Light
             let lightDir = normalize lightVec
             let diffuse = 
@@ -77,18 +79,20 @@ module BlinnPhong =
                            |> normalize
                            |> subtract lightDir
                            |> normalize
-                           |> dot input.Normal
+                           |> dot normal
                            |> saturatef
                            |> pow mat.Shine
                            |> mul mat.Specular
+                           |> saturatef
 
             let lightColor = float3(1.0f,1.0f,1.0f)
             let intensity = scene.AmbientLight + (diffuse + specular)*lightColor
                             |> saturate
             
-            let albedo = diffuseTexture.Sample(linearSampler, input.UV)
-            let color = albedo.rgb*intensity
-            float4(color, 1.0f)
+            let tex = diffuseTexture.Sample(linearSampler, input.UV)
+            let color = tex.rgb * intensity 
+            let alphaBlend = lerp(intensity,color, (tex.a)) 
+            float4(alphaBlend, 1.0f)
 
 module Diffuse =
     [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]

@@ -7,7 +7,7 @@ open System.Windows.Forms
 open System.Diagnostics
 
 let width, height = 640, 480
-let form = new Form(Visible = true, Text = "Blue skies", Width = width, Height = height)
+let form = new Form(Visible = true, Text = "Colored Cube", Width = width, Height = height)
 let run() = 
     let hlsl = ShaderTranslator.toHLSL typeof<Diffuse.Shader>
     let inputElements = 

@@ -1,6 +1,7 @@
 ﻿namespace SharpShaders
 
 open SharpDX
+open Assimp
 open System
 
 module Geometry =
@@ -79,4 +80,25 @@ module Geometry =
                                 yield top
                                 yield bottom }   )
             
+    let fromMesh(mesh:Mesh) =
+        let vector3(v:Vector3D) = Vector3(v.X,v.Y,v.Z)
+        let vector2(v:Vector3D) = Vector2(v.X,v.Y)
+        let vertices = 
+            mesh.Vertices
+            |> Array.map vector3
 
+        let normals = 
+            let invert v = -vector3(v)
+            mesh.Normals 
+            |> Array.map invert
+        let uvs = mesh.GetTextureCoords(0)
+                  |> Array.map vector2
+        let vertex(face:Face) =
+            let faceVertex(ui:uint32) =
+                let i = int(ui)
+                vertices.[i],normals.[i],uvs.[i]
+            face.Indices
+            |> Array.map faceVertex
+        // Assume faces are triangles
+        mesh.Faces
+        |> Array.collect vertex

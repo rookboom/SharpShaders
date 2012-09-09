@@ -24,6 +24,11 @@ type Vertex(p:Vector3, n:Vector3, uv:Vector2) =
 /// with the minimum boilerplate code.
 /// It only renders a single object and the camera always points at the origin                
 type MiniRender(windowHandle, width, height) =
+    let disposables = List<IDisposable>()
+    let disposable d =
+        disposables.Add(d)
+        d
+
     let device, swapChain =
         let modeDescription = new ModeDescription(  
                                 Width = width,
@@ -44,11 +49,9 @@ type MiniRender(windowHandle, width, height) =
                                             DriverType.Hardware,
                                             DeviceCreationFlags.Debug,
                                             swapChainDescription )
-        device, swapChain
+        disposable device, disposable swapChain
 
-    let disposables = List<IDisposable>()
-    do disposables.Add(device)
-    do disposables.Add(swapChain)
+
     let createConstantBuffer(size) = 
         let vsConstBufferDesc = new BufferDescription(
                                     BindFlags = BindFlags.ConstantBuffer,
@@ -57,8 +60,7 @@ type MiniRender(windowHandle, width, height) =
                                     Usage = ResourceUsage.Dynamic)
         new Direct3D11.Buffer( device, vsConstBufferDesc )
 
-    let deviceContext = device.ImmediateContext
-    do disposables.Add(deviceContext)
+    let deviceContext = disposable device.ImmediateContext
 
     let updateShaderConstants constBuffer (data:'a) = 
         let _, dataStream = deviceContext.MapSubresource(
@@ -71,7 +73,7 @@ type MiniRender(windowHandle, width, height) =
     let renderTargetView = 
         use renderTarget = Resource.FromSwapChain<Texture2D>(swapChain, 0)
         new RenderTargetView(device, renderTarget)
-    do disposables.Add(renderTargetView)
+        |> disposable
     //Create a viewport with the same size as the window
     let viewport =
         Viewport(
@@ -94,21 +96,19 @@ type MiniRender(windowHandle, width, height) =
 
     let linearSampler = 
         let desc = SamplerStateDescription( Filter = Filter.MinMagMipLinear,
-                                            AddressU = TextureAddressMode.Wrap,
-                                            AddressV = TextureAddressMode.Wrap,
-                                            AddressW = TextureAddressMode.Wrap,
+                                            AddressU = TextureAddressMode.Clamp,
+                                            AddressV = TextureAddressMode.Clamp,
+                                            AddressW = TextureAddressMode.Clamp,
                                             MaximumAnisotropy = 1,
                                             ComparisonFunction = Comparison.Always,
                                             MaximumLod = System.Single.MaxValue)
-        new SamplerState(device, desc)
-    do disposables.Add(linearSampler)
+        disposable(new SamplerState(device, desc))
 
     do deviceContext.PixelShader.SetSampler(0, linearSampler)
 
     let createBuffer (constants:'a)  =
         let buffer = createConstantBuffer(sizeof<'a>)
-        disposables.Add(buffer)
-        buffer
+        disposable buffer
 
     interface IDisposable with
         member m.Dispose() =
@@ -117,21 +117,21 @@ type MiniRender(windowHandle, width, height) =
 
     member m.createVertexShader code inputElements constants =
         let vsByteCode = compile code "vertex" "vs_5_0"
-        disposables.Add(vsByteCode)
+                         |> disposable
 
         let inputLayout =
             new InputLayout(
                 device, 
                 vsByteCode, 
                 inputElements)
-        disposables.Add(inputLayout)
+            |> disposable
 
         do deviceContext.InputAssembler.PrimitiveTopology <- 
             PrimitiveTopology.TriangleList
         do deviceContext.InputAssembler.InputLayout <- inputLayout
 
         let vertexShader = new VertexShader(device, vsByteCode)
-        disposables.Add(vertexShader)
+                           |> disposable
         do deviceContext.VertexShader.Set(vertexShader)
 
         let buffer = createBuffer constants
@@ -147,16 +147,18 @@ type MiniRender(windowHandle, width, height) =
     member m.createPixelShader code constants =
         let pixelShader, cb0 =
             let psByteCode = compile code "pixel" "ps_5_0"
-            disposables.Add(psByteCode)
+                             |> disposable
 
             use shaderReflection = new ShaderReflection(psByteCode)
             let constantBufferName(i:int) =
                 let cb = shaderReflection.GetConstantBuffer(i)
-                cb.Description.Name
+                try
+                    cb.Description.Name
+                with
+                | _ -> ""
 
-            new PixelShader(device, psByteCode),
+            new PixelShader(device, psByteCode) |> disposable,
             constantBufferName 0
-        disposables.Add(pixelShader)
         do deviceContext.PixelShader.Set(pixelShader)
 
         let scene, mat = constants
@@ -180,7 +182,7 @@ type MiniRender(windowHandle, width, height) =
     member m.createTextures textureFiles =
         let setTexture i filename =
             let textureView = TextureLoader.fromFile device filename
-            disposables.Add(textureView)
+                              |> disposable
             do deviceContext.PixelShader.SetShaderResource(0, textureView)
 
         textureFiles
@@ -230,7 +232,7 @@ type MiniRender(windowHandle, width, height) =
             do deviceContext.InputAssembler.SetVertexBuffers(0, vertexBuffer)
             do deviceContext.Draw(vertexCount, 0) 
             
-            do swapChain.Present(0, PresentFlags.None) |> ignore
+            do swapChain.Present(1, PresentFlags.None) |> ignore
         draw
 
 

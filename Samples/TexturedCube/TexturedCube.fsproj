@@ -41,12 +41,20 @@
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
   <ItemGroup>
     <Compile Include="Program.fs" />
-    <None Include="..\Assets\Textures\GeneticaMortarlessBlocks.jpg">
-      <Link>GeneticaMortarlessBlocks.jpg</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Include="..\..\External\d3dcompiler_45.dll">
       <Link>d3dcompiler_45.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Assets\Models\Golfball.obj">
+      <Link>Golfball.obj</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\..\External\AssimpNet\Assimp64.dll">
+      <Link>Assimp64.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Include="..\Assets\Textures\SharpDXLogo.png">
+      <Link>SharpDXLogo.png</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
@@ -61,6 +69,9 @@
       <Project>{a80d56d4-e3ac-4f98-ae26-93962f468e97}</Project>
       <Private>True</Private>
     </ProjectReference>
+    <Reference Include="AssimpNet">
+      <HintPath>..\..\External\AssimpNet\AssimpNet.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>

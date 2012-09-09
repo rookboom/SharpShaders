@@ -5,9 +5,10 @@ open SharpDX.Windows
 open SharpDX
 open System.Windows.Forms
 open System.Diagnostics
+open Assimp
 
-let width, height = 640, 480
-let form = new Form(Visible = true, Text = "Blue skies", Width = width, Height = height)
+let width, height = 1024, 768
+let form = new Form(Visible = true, Text = "Golfball", Width = width, Height = height)
 let run() = 
     let hlsl = ShaderTranslator.toHLSL typeof<BlinnPhong.Shader>
     let inputElements = 
@@ -20,9 +21,9 @@ let run() =
     
     let eye = Vector3(0.0f,0.0f,-6.0f)
     let sceneConstants, matConstants, objectConstants = 
-        let light = eye
-        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 10.0f),
-        BlinnPhong.MaterialConstants(0.1f, 0.5f, 0.5f, 30.0f),
+        let light = eye + Vector3(5.0f, 5.0f, 0.0f)
+        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.01f,0.01f,0.01f), 20.0f),
+        BlinnPhong.MaterialConstants(0.1f, 0.5f, 0.5f, 2.0f),
         BlinnPhong.ObjectConstants(fromMatrix(Matrix.Identity),
                                    fromMatrix(Matrix.Identity))
 
@@ -30,15 +31,20 @@ let run() =
         renderer.createVertexShader hlsl inputElements objectConstants
     let updateOtherConstants =
         renderer.createPixelShader hlsl (sceneConstants, matConstants)
-    do renderer.createTextures ["GeneticaMortarlessBlocks.jpg"]
-    let draw = renderer.createScene(Geometry.cube 1.0f)
+    let geometry =
+        use import = ModelImporter.import "Golfball.obj"
+        Geometry.fromMesh import.Scene.Meshes.[0]
+    do renderer.createTextures ["SharpDXLogo.png"]
+    let draw = renderer.createScene(geometry)
     let viewProjection = renderer.createViewProjection(eye)
     let sw = Stopwatch.StartNew()
 
     let render() =
         let world = 
             let time = float32(sw.ElapsedMilliseconds)/1000.0f
-            Matrix.RotationYawPitchRoll(time, 2.0f*time, 0.0f)
+            let rotation = Matrix.RotationYawPitchRoll(time, 2.0f*time, 0.0f)
+            let scale = Matrix.Scaling(0.05f)
+            scale*rotation
         BlinnPhong.ObjectConstants(fromMatrix(world*viewProjection), fromMatrix(world))
         |> updateObjectConstants
         draw()
