@@ -6,6 +6,8 @@ open System.Runtime.InteropServices
 open SharpShaders.Math
 open SharpShaders
 
+type ShaderMethod = ReflectedDefinitionAttribute
+
 module BlinnPhong =
    [<Struct; StructLayout(LayoutKind.Explicit, Size=48)>]
     type SceneConstants =
@@ -50,7 +52,7 @@ module BlinnPhong =
                 mat:MaterialConstants, 
                 diffuseTexture:Texture, 
                 linearSampler:SamplerStateDescription) =
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.vertex(input:VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
@@ -58,7 +60,7 @@ module BlinnPhong =
                     input.Normal * float3x3(obj.World),
                     input.UV)    
 
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.pixel(input:PSInput) =
             let worldPos = input.PositionWS
             let normal = input.Normal
@@ -67,10 +69,10 @@ module BlinnPhong =
             let lightDir = normalize lightVec
             let diffuse = 
                 let lightFallOff = 
-                    scene.LightRangeSquared/(lightVec |> dot lightVec)
+                    let lightVecSquared = (lightVec |> dot lightVec)
+                    scene.LightRangeSquared/lightVecSquared
                     |> saturatef
-                input.Normal 
-                |> normalize
+                normal 
                 |> dot -lightDir
                 |> mul mat.Diffuse
                 |> mul lightFallOff
@@ -91,8 +93,7 @@ module BlinnPhong =
             
             let tex = diffuseTexture.Sample(linearSampler, input.UV)
             let color = tex.rgb * intensity 
-            let alphaBlend = lerp(intensity,color, (tex.a)) 
-            float4(alphaBlend, 1.0f)
+            float4(color, 1.0f)
 
 module Diffuse =
     [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
@@ -118,22 +119,20 @@ module Diffuse =
         member m.Normal = n
 
     [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type PSInput(p:float4, wp:float3, n:float3) =
+    type PSInput(p:float4, n:float3) =
         member m.PositionHS = p
-        member m.PositionWS = wp
         member m.Normal = n
 
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants) =
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.vertex(input:VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
-                    worldPos.xyz,
                     input.Normal * float3x3(obj.World))    
 
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.pixel(input:PSInput) =
             let color = 
                 input.Normal 
@@ -166,11 +165,11 @@ module Simplistic =
 
     type Shader(obj:ObjectConstants, mat:MaterialConstants) =
 
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.vertex(input:VSInput) =
             PSInput(input.Position * obj.WorldViewProjection)
 
-        [<ReflectedDefinition>]
+        [<ShaderMethod>]
         member m.pixel(input:PSInput) =
             float4(1.0f, 0.0f, 1.0f,1.0f)
 

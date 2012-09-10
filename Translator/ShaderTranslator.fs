@@ -364,42 +364,40 @@ struct %s
             | expr -> failwith(sprintf "Expected dunno %A" expr)
 
         let shader shaderMethodInfo =
-            match shaderMethodInfo with
-            | MethodWithReflectedDefinition(expr) ->
-                let shaderMethodDeclaration =
-                    /// The first line of the shader which defines the shader name, inputs and outputs
-                    let shaderSignature(mi:MethodInfo) =
-                        let returnType = mi.ReturnType
-                        let annotation = 
-                            if returnType = typeof<float4> || 
-                               returnType = typeof<Color4> then
-                                " : SV_TARGET"
-                            else
-                                ""
-                        /// For now we restrict shaders to single input parameters
-                        let shaderInput (mi:MethodInfo) =
-                                    let ps = Array.toList(mi.GetParameters())
-                                    match ps with
-                                    | p::[] -> p
-                                    | _ -> failwith "Shader has to have exactly one input parameter which should be a struct."
+            let shaderMethodDeclaration expr =
+                /// The first line of the shader which defines the shader name, inputs and outputs
+                let shaderSignature(mi:MethodInfo) =
+                    let returnType = mi.ReturnType
+                    let methodName = mi.Name
+                    let ``optional return semantic`` = 
+                        match methodName with
+                        | "pixel" -> " : SV_TARGET"
+                        | _ -> ""
+
+                    /// For now we restrict shaders to single input parameters
+                    let shaderInput (mi:MethodInfo) =
+                        match mi.GetParameters() with
+                        | [|p|] -> p
+                        | _ -> failwith "Shader has to have exactly one input parameter which should be a struct."
 
 
-                        let p = shaderInput mi
-                        sprintf "%s %s(%s %s)%s" (mapType mi.ReturnType.Name)
-                                                  mi.Name 
-                                                  p.ParameterType.Name 
-                                                  p.Name
-                                                  annotation
-                    let formatShader = sprintf @"
+                    let parameter = shaderInput mi
+                    sprintf "%s %s(%s %s)%s" (mapType returnType.Name)
+                                                mi.Name 
+                                                parameter.ParameterType.Name 
+                                                parameter.Name
+                                                ``optional return semantic``
+                let formatShader = sprintf @"
 %s
 {
-    %s
+%s
 };"
-                    formatShader (shaderSignature shaderMethodInfo)
-                                 (statements expr)
+                formatShader (shaderSignature shaderMethodInfo)
+                             (statements expr)
 
-                shaderMethodDeclaration
-            | _ -> failwith(sprintf "Unexpected public method %s. All public methods are expected to have the 'ReflectedDifinition' attribute." shaderMethodInfo.Name)
+            match shaderMethodInfo with
+            | MethodWithReflectedDefinition(expr) -> shaderMethodDeclaration expr
+            | _ -> failwith(sprintf "Unexpected public method %s. All public methods are expected to have the 'ShaderMethod' attribute." shaderMethodInfo.Name)
         
         let methodName(mi:MethodInfo) = mi.Name
         methods t

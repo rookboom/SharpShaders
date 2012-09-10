@@ -111,7 +111,7 @@ return x;", ShaderTranslator.hlsl expr)
     [<Fact>]
     let ``Should allow pixel shaders that end with FieldGet expression as only line``() =
         let expectedVS = @"
-float4 pixel(PSInput input)
+float4 pixel(PSInput input) : SV_TARGET
 {
     return MaterialDiffuse;
 };"
@@ -120,7 +120,7 @@ float4 pixel(PSInput input)
     [<Fact>]
     let ``Should allow pixel shaders that end with FieldGet expression after other statements``() =
         let expectedVS = @"
-float4 pixel(PSInput input)
+float4 pixel(PSInput input) : SV_TARGET
 {
     float x = 5;
     return MaterialDiffuse;
