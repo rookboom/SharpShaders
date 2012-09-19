@@ -54,14 +54,15 @@ There are a couple of reasons why it would be desirable to write shader code in 
 *F# is a succinct, expressive and efficient functional and object-oriented language for .NET which helps you write simple code to solve complex problems - Microsoft Research*
 
 Features such as type inference and the pipelining operator allow you to write very succint code, distilling it down to the core of the problem without polluting the code with superfluous syntax. Take for example a typical shader computation for calculating the output color. In English one would say:  
->The output color is the *normalized* input normal *dot* the negative light direction, *multiplied* with the diffuse material color and *saturated* to keep the values within permitted bounds. Unfortunately, in HLSL, we have to write this logic in reverse:  
+>The output color is the *normalized* input normal *dot* the negative light direction, *multiplied* with the diffuse material color and *saturated* to keep the values within permitted bounds. 
+
+Unfortunately, in HLSL, we have to write this logic in reverse:  
 
 <code>
-
-float4 color = saturate(mul(Diffuse, dot(-LightDirection, normalize(input.Normal)))
-
+float4 color = saturate(mul(Diffuse, dot(-LightDirection, normalize(input.Normal)));
 </code>  
-In F# you can preserve the logical order by using the pipelining operator.
+
+In F# you can preserve the logical order by using the pipelining operator:
 <code>
 
     let color =  
@@ -72,19 +73,17 @@ In F# you can preserve the logical order by using the pipelining operator.
 		|> saturate
 </code> 
 
- 
-#### Target multiple platforms
-In game programming, we seldom have the luxury of developing for a single platform. We need to write code that will run on anything from an iPhone to a PC. Some cross platform game engines, allow you to write shader code in a propriatary language which gets translated to either HLSL for DirectX based platforms, or GLSL for OpenGL based platforms. There are certainly good reasons for creating a language from scratch, but it certainly is quite an endeavor. You need to create a lexer and a parser to translate the text in to meaningful expressions. Only then can you start translating these expressions into other languages such as HLSL or GLSL. Due to a unique language feature called *Quotations*, translating F# to another language turns out to be much simpler than one might expect.
-#### Unit Testing
-If you are obsessive compulsive about things like code coverage, then shader code will probably be a bit of a thorn in your side. It is the one place in the software that is very hard to put under test. If the shaders however are written in F#, this becomes trivial. As long as we have faithful implementations of standard shader operations such as *dot*, *cross*, *saturate*, we can run our test code on the CPU and have reasonable confidence that our shaders are behaving acording to our expectations.
+Of course using a language that is integrated in to Visual Studio also brings several other benefits such as 
 
-
-- Target either HLSL or GLSL or Cg depending on the platform
-- Run shader code on the CPU for unit testing
-- Language features such as type inference and the pipelining operator
-- All the benefits of a language that is integrated in to Visual Studio
 	- Syntax highlighting
     - Jump to method/struct declaration
+	- etc
+ 
+#### Target multiple platforms
+In game programming, we seldom have the luxury of developing for a single platform. We need to write code that will run on anything from an iPhone to a PC. Some cross platform game engines, allow you to write shader code in a proprietary language which gets translated to either HLSL for DirectX based platforms, or GLSL for OpenGL based platforms. There are good reasons for creating a language from scratch, but it certainly is quite an endeavor. You need to create a lexer and a parser to translate the text in to meaningful expressions. Only then can you start translating these expressions into other languages such as HLSL or GLSL. Due to a unique language feature called *Quotations*, translating F# to another language turns out to be much simpler than one might expect.
+#### Unit Testing
+If you are obsessive compulsive about things like code coverage, then shader code will probably be a bit of a thorn in your side. It would be extremely hard to unit test shader code that is executed on the GPU. While certainly possible, the amount of effort involved in pulling this of would probably outway the benefits. If the shaders however are written in F#, which can be executed on the CPU, this becomes trivial. As long as we have faithful implementations of standard shader operations such as *dot*, *cross*, *saturate*, we can run our test code on the CPU and have reasonable confidence that our shaders are behaving according to our expectations.
+
 	
 ## How
 #### Expression Trees
