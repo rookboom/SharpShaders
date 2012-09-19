@@ -78,13 +78,15 @@ module Math =
         member m.xyz = float3(m.x, m.y, m.z)
         member m.rgb = m.xyz
         member m.a = m.w
-        static member zero = float4(0.0f,0.0f,0.0f,0.0f)
+        static member zero = float4(0.0f,0.0f,0.0f,1.0f)
         member m.saturate() = float4.saturate m
         member m.lerp(dest:float4, t) = m*t + (1.0f-t)*dest
         static member saturate(v:float4) = float4(v.x.saturate(),
                                                   v.y.saturate(),
                                                   v.z.saturate(),
                                                   v.w.saturate())
+        override m.ToString() =
+            sprintf "(%3.3f, %3.3f, %3.3f, %3.3f)" m.x m.y m.z m.w 
 
 
     let inline saturate< ^T when ^T :(member saturate : unit -> ^T)> (x:^T) =
@@ -129,10 +131,10 @@ module Math =
                    v.x*m.M21 + v.y*m.M22 + v.z*m.M23,
                    v.x*m.M31 + v.y*m.M32 + v.z*m.M33 )
         static member (*) (v:float4, m:float4x4) =
-            float4(v.x*m.M11 + v.y*m.M12 + v.z*m.M13 + v.w*m.M14,
-                   v.x*m.M21 + v.y*m.M22 + v.z*m.M23+ v.w*m.M24,
-                   v.x*m.M31 + v.y*m.M32 + v.z*m.M33+ v.w*m.M34,
-                   v.x*m.M41 + v.y*m.M42 + v.z*m.M43+ v.w*m.M44 )
+            float4(v.x*m.M11 + v.y*m.M21 + v.z*m.M31 + v.w*m.M41,
+                   v.x*m.M12 + v.y*m.M22 + v.z*m.M32 + v.w*m.M42,
+                   v.x*m.M13 + v.y*m.M23 + v.z*m.M33 + v.w*m.M43,
+                   v.x*m.M14 + v.y*m.M24 + v.z*m.M34 + v.w*m.M44 )
         static member identity = float4x4(1.0f,0.0f,0.0f,0.0f,
                                           0.0f,1.0f,0.0f,0.0f,
                                           0.0f,0.0f,1.0f,0.0f,

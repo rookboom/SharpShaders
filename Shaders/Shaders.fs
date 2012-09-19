@@ -128,7 +128,6 @@ module Diffuse =
                 mat:MaterialConstants) =
         [<ShaderMethod>]
         member m.vertex(input:VSInput) =
-            let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
                     input.Normal * float3x3(obj.World))    
 
@@ -139,6 +138,7 @@ module Diffuse =
                 |> normalize
                 |> dot -scene.LightDirection
                 |> mul mat.Diffuse
+                |> saturate
             float4(color, 1.0f)
 
 module Simplistic =

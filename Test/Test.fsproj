@@ -57,6 +57,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ShaderGenerationTests.fs" />
+    <Compile Include="DiffuseShaderTests.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Shaders\Shaders.fsproj">
