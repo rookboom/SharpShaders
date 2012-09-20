@@ -96,6 +96,7 @@ Of course since F# is integrated into Visual Studio, it also has several other b
 - etc
  
 <h4 id="testing">Unit Testing</h4>
+#### 
 If you are obsessive compulsive about things like unit testing and code coverage, then shader code will probably be a bit of a thorn in your side. It would be extremely hard to unit test shader code that is executed on the GPU. While certainly possible, the amount of effort involved in pulling this off would probably outway the benefits. If the shaders however are written in F#, which can be executed on the CPU, this becomes trivial. As long as we have faithful implementations of standard shader operations such as *dot*, *cross*, *saturate*, we can run our test code on the CPU and have reasonable confidence that our shaders are behaving according to our expectations.
 
 	
