@@ -49,11 +49,16 @@ float4 pixel(PSInput input) : SV_TARGET
 
 </code>
 ## Why on earth?
-There are a couple of reasons why it would be desirable to write shader code in F#.
-#### Targeting multiple platforms
+There are a couple of reasons why it would be desirable to write shader code in F#:
+
+- [Targetting multiple platforms](#multiplatform)
+- [Syntactic sugar](#sugar)
+- [Unit testing](#testing)
+
+<h4 id="multiplatform">Targeting multiple platforms</h4>
 In game programming, we seldom have the luxury of developing for a single platform. We need to write code that will run on anything from an iPhone to a PC. Some cross platform game engines, allow you to write shader code in a proprietary language which gets translated to either HLSL for DirectX based platforms, or GLSL for OpenGL based platforms. There are good reasons for creating a language from scratch, but it certainly is quite an endeavor. You need to create a lexer and a parser to translate the text in to meaningful expressions. Only then can you start translating these expressions into other languages such as HLSL or GLSL. Thanks to a language feature called *Quotations*, translating F# to another language turns out to be much simpler than one might expect.
 
-#### Syntactic sugar
+<h4 id="suga">Syntactic sugar</h4>
 *F# is a succinct, expressive and efficient functional and object-oriented language for .NET which helps you write simple code to solve complex problems - Microsoft Research*
 
 F# allows you express computations in a very natural, declaritive way without polluting the code with superfluous syntax. Take for example a typical shader computation for calculating the output color. In English one might say:  
@@ -90,7 +95,7 @@ Of course since F# is integrated into Visual Studio, it also has several other b
 - Jump to method/struct declaration
 - etc
  
-#### Unit Testing
+<h4 id="testing">Unit Testing</h4>
 If you are obsessive compulsive about things like unit testing and code coverage, then shader code will probably be a bit of a thorn in your side. It would be extremely hard to unit test shader code that is executed on the GPU. While certainly possible, the amount of effort involved in pulling this off would probably outway the benefits. If the shaders however are written in F#, which can be executed on the CPU, this becomes trivial. As long as we have faithful implementations of standard shader operations such as *dot*, *cross*, *saturate*, we can run our test code on the CPU and have reasonable confidence that our shaders are behaving according to our expectations.
 
 	
@@ -109,7 +114,7 @@ we get the following expression:
   Call (None, op_Multiply, [PropertyGet (None, pos, []), PropertyGet (None, worldMatrix, [])])
 
 Note that any code enclosed by the <@ ... @> symbols are regarded as a quotation. From the type information we can see that the above expression is a function call to a method *op_Multiply*, which takes two parameters, *pos* and *worldMatrix*. These two variables are of type PropertyInfo which contains information about the input parameters such as their names and types.
-To translate this small snippet to HLSL, we just need to map the *op_Multiply* function call to the *mul* function call.
+To translate this small snippet to HLSL, we just need to map the *op_Multiply* function call to the *mul* function call. For a great introduction in using quotations, visit Kurt Schelfthout's blog, [Forty Six and Two](http://fortysix-and-two.blogspot.ca/2009/06/traversing-and-transforming-f.html)
 
 #### Pattern Matching
 F# is not the only language that is able to be easily converted to an expression tree. C# Expressions for example offer similiar functionality. However, F#'s powerful pattern matching capibilities makes it much easier for us to evaluate these recursive data structures.
