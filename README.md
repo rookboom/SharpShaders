@@ -2,22 +2,26 @@
 
 **SharpShaders** is a library that allows you to write GPU shader code in F#. 
 
+<img src="Golfball.jpg"/>
+
 ## F# Shaders
 Here is what a basic diffuse shader might look like written in F#. (Data structure definitions are ommitted for brevity)
 
 <code>
     type Shader(  
- 				scene:SceneConstants,  
-                obj:ObjectConstants,  
-                mat:MaterialConstants) =  
+ 				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scene:[SceneConstants](#scene-constants),  
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;obj:[ObjectConstants](#object-constants),  
+                &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mat:[MaterialConstants](#material-constants)) =  
 
-        [< VertexShader >]  
-        member m.vertex(input:VSInput) =  
+&nbsp;&nbsp;&nbsp;&nbsp;[< VertexShader >]  
+&nbsp;&nbsp;&nbsp;&nbsp;member m.vertex(input:[VSInput](#vertex-shader-input)) =
+  
             PSInput(input.Position * obj.WorldViewProjection,  
                     input.Normal * float3x3(obj.World))    
 
-        [< PixelShader >]
-        member m.pixel(input:PSInput) =
+&nbsp;&nbsp;&nbsp;&nbsp;[< PixelShader >]  
+&nbsp;&nbsp;&nbsp;&nbsp;member m.pixel(input:[PSInput](#pixel-shader-input)) =
+
             let color = 
                 input.Normal 
                 |> normalize
@@ -126,3 +130,37 @@ F# is not the only language that is able to be easily converted to an expression
 
 This example is of course a bit over simplified. In reality, the parameters to the mul operator could themselves be expressions. Fortunately F# pattern matching makes parsing recursive data structures a breeze and one can whip up a basic translator in less than 200 lines of code. A basic implementation can be found in the [SharpShaders project on GitHub](http://example.com/ "Title") .
 
+##Data Structures
+#####Scene Constants
+
+	[<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
+    type SceneConstants =
+        [<FieldOffset(0)>]  val LightDirection : float3
+        with
+        new(lightDir) = { LightDirection = lightDir}
+
+#####Material Constants
+    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
+    type MaterialConstants =
+        [<FieldOffset(0)>]  val Diffuse : float3
+        with
+        new(diffuse) = { Diffuse = diffuse}
+
+#####Object Constants
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type ObjectConstants(wvp:float4x4, w:float4x4) =
+        member m.WorldViewProjection = wvp
+        member m.World = w
+
+#####Vertex Shader Input
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type VSInput(p:float4, n:float3) =
+        member m.Position = p
+        member m.Normal = n
+
+#####Pixel Shader Input
+    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    type PSInput(p:float4, n:float3) =
+        member m.PositionHS = p
+        member m.Normal = n
+</code>

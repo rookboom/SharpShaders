@@ -99,7 +99,7 @@ type MiniRender(windowHandle, width, height) =
                                             AddressU = TextureAddressMode.Clamp,
                                             AddressV = TextureAddressMode.Clamp,
                                             AddressW = TextureAddressMode.Clamp,
-                                            MaximumAnisotropy = 1,
+                                            MaximumAnisotropy = 16,
                                             ComparisonFunction = Comparison.Always,
                                             MaximumLod = System.Single.MaxValue)
         disposable(new SamplerState(device, desc))

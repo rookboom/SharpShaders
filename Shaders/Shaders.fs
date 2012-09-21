@@ -126,6 +126,12 @@ module Diffuse =
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants) =
+        let color lightDirection (materialDiffuse:float4) =  
+                normalize  
+                >> dot -lightDirection
+                >> mul materialDiffuse.rgb
+                >> saturate
+
         [<ShaderMethod>]
         member m.vertex(input:VSInput) =
             PSInput(input.Position * obj.WorldViewProjection,

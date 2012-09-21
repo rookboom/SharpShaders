@@ -7,7 +7,7 @@ open System.Windows.Forms
 open System.Diagnostics
 open Assimp
 
-let width, height = 1024, 768
+let width, height = 640, 480
 let form = new Form(Visible = true, Text = "Golfball", Width = width, Height = height)
 let run() = 
     let hlsl = ShaderTranslator.toHLSL typeof<BlinnPhong.Shader>
@@ -34,7 +34,7 @@ let run() =
     let geometry =
         use import = ModelImporter.import "Golfball.obj"
         Geometry.fromMesh import.Scene.Meshes.[0]
-    do renderer.createTextures ["SharpDXLogo.png"]
+    do renderer.createTextures ["Smiley.png"]
     let draw = renderer.createScene(geometry)
     let viewProjection = renderer.createViewProjection(eye)
     let sw = Stopwatch.StartNew()

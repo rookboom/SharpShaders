@@ -53,8 +53,8 @@
       <Link>Assimp64.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="..\Assets\Textures\SharpDXLogo.png">
-      <Link>SharpDXLogo.png</Link>
+    <None Include="..\Assets\Textures\Smiley.png">
+      <Link>Smiley.png</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
