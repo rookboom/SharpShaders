@@ -5,21 +5,23 @@
 <img src="Golfball.jpg"/>
 
 ## F# Shaders
-Here is what a basic diffuse shader might look like written in F#. (Data structure definitions are ommitted for brevity)
+Here is what a basic diffuse shader might look like written in F#.
 
 <code>
     type Shader(  
  				&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scene:[SceneConstants](#scene-constants),  
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;obj:[ObjectConstants](#object-constants),  
                 &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mat:[MaterialConstants](#material-constants)) =  
-
-&nbsp;&nbsp;&nbsp;&nbsp;[< VertexShader >]  
+</code>
+<code>
+&nbsp;&nbsp;&nbsp;&nbsp;[< ShaderMethod >]  
 &nbsp;&nbsp;&nbsp;&nbsp;member m.vertex(input:[VSInput](#vertex-shader-input)) =
   
             PSInput(input.Position * obj.WorldViewProjection,  
                     input.Normal * float3x3(obj.World))    
-
-&nbsp;&nbsp;&nbsp;&nbsp;[< PixelShader >]  
+</code>
+<code>
+&nbsp;&nbsp;&nbsp;&nbsp;[< ShaderMethod >]  
 &nbsp;&nbsp;&nbsp;&nbsp;member m.pixel(input:[PSInput](#pixel-shader-input)) =
 
             let color = 
@@ -34,22 +36,19 @@ Here is what a basic diffuse shader might look like written in F#. (Data structu
 This would translate to:
 <code>
 
-
-PSInput vertex(VSInput input)
-{
-
-	PSInput o;
-    o.PositionHS = mul(input.Position,WorldViewProjection);
-	o.Normal = mul(input.Normal,(float3x3)(World));
-    return o;
-};
-
-float4 pixel(PSInput input) : SV_TARGET
-{
-
-	float3 color = saturate(mul(Diffuse,dot(-(LightDirection),normalize(input.Normal))));  
-	return float4(color,1);
-};
+	PSInput vertex(VSInput input)
+	{
+		PSInput o;
+	    o.PositionHS = mul(input.Position,WorldViewProjection);
+		o.Normal = mul(input.Normal,(float3x3)(World));
+	    return o;
+	};
+	
+	float4 pixel(PSInput input) : SV_TARGET
+	{
+		float3 color = saturate(mul(Diffuse,dot(-(LightDirection),normalize(input.Normal))));  
+		return float4(color,1);
+	};
 
 </code>
 ## Why on earth?
@@ -58,6 +57,7 @@ There are a couple of reasons why it would be desirable to write shader code in 
 - [Targeting multiple platforms](#targeting-multiple-platforms)
 - [Syntactic sugar](#syntactic-sugar)
 - [Unit testing](#unit-testing)
+- Because it's FUN!
 
 ####Targeting multiple platforms
 In game programming, we seldom have the luxury of developing for a single platform. We need to write code that will run on anything from an iPhone to a PC. Some cross platform game engines, allow you to write shader code in a proprietary language which gets translated to either HLSL for DirectX based platforms, or GLSL for OpenGL based platforms. There are good reasons for creating a language from scratch, but it certainly is quite an endeavor. You need to create a lexer and a parser to translate the text in to meaningful expressions. Only then can you start translating these expressions into other languages such as HLSL or GLSL. Thanks to a language feature called *Quotations*, translating F# to another language turns out to be much simpler than one might expect.
