@@ -229,41 +229,41 @@ struct %s
 
     /// Convert an F# expression to HLSL
     let rec methodBody = function
-        | NewObject(constructorInfo, exprList) ->
-            /// When the shader consists of only a single new object expression, is assumed that this object type
-            /// is the same as the shader output. 
-            match constructorInfo.DeclaringType with
-            /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
-            | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
-            | objectType -> 
-                /// To translate anothing other than basic types to HLSL, we need to assign each constructor 
-                /// parameter statement to the matching output field. For simplicity we assume that the constructor 
-                /// parameters are in the same order as the declared fields.
-                /// The results is a sequence of statements of the following form:
-                /// o.field1 = constructorExpression1;
-                let fieldAssignment(left, right) =
-                    sprintf "o.%s = %s;" left right
-                let fieldNames =
-                    let name(p:PropertyInfo) = p.Name
-                    objectType.GetProperties()
-                    |> Seq.map name
-                let assignments =
-                    exprList
-                    |> Seq.map hlsl
-                    |> Seq.zip fieldNames
-                    |> Seq.map fieldAssignment
-                    |> String.concat "\n"
-                let format = sprintf @"
-    %s o;
-    %s
-    return o;" 
-                format (mapType objectType.Name) assignments
+    | NewObject(constructorInfo, exprList) ->
+        /// When the shader consists of only a single new object expression, is assumed that this object type
+        /// is the same as the shader output. 
+        match constructorInfo.DeclaringType with
+        /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
+        | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
+        | objectType -> 
+            /// To translate anothing other than basic types to HLSL, we need to assign each constructor 
+            /// parameter statement to the matching output field. For simplicity we assume that the constructor 
+            /// parameters are in the same order as the declared fields.
+            /// The results is a sequence of statements of the following form:
+            /// o.field1 = constructorExpression1;
+            let fieldAssignment(left, right) =
+                sprintf "o.%s = %s;" left right
+            let fieldNames =
+                let name(p:PropertyInfo) = p.Name
+                objectType.GetProperties()
+                |> Seq.map name
+            let assignments =
+                exprList
+                |> Seq.map hlsl
+                |> Seq.zip fieldNames
+                |> Seq.map fieldAssignment
+                |> String.concat "\n"
+            let format = sprintf @"
+%s o;
+%s
+return o;" 
+            format (mapType objectType.Name) assignments
 
 
-        /// Multi-line statements has to start with a let binding
-        | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
-        /// This has to be a single line statement.
-        | body -> sprintf "return %s;" (hlsl body)
+    /// Multi-line statements has to start with a let binding
+    | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
+    /// This has to be a single line statement.
+    | body -> sprintf "return %s;" (hlsl body)
 
     and hlsl expr =
         let (|PipeRight|_|) = function
@@ -350,53 +350,25 @@ struct %s
     /// A tuple representing the generated HLSL for the shader method as the first value
     /// and the method name as the second.
     let shaders(t:Type) =
-        /// Retrieve the method body of a lamda expression, ignoring the input parameters
-        let (|MethodBody|_|) = function
-            |Lambda(var, expr) -> 
+        /// Recursively evaluate expressions and translating to HLSL
+        let shaderMethod name = function
+            | Lambda(v, expr) -> 
                 match expr with
-                | Lambda(var, expr) -> Some(expr)
-                | _ -> failwith(sprintf "Expected method parameters. Got: %A" expr)
-            | expr -> failwith(sprintf "Expected lambda, got: %A" expr)
-
-        /// Extract only the method statements from the expression
-        let statements = function
-            | MethodBody(expr) -> methodBody(expr)
-            | expr -> failwith(sprintf "Expected dunno %A" expr)
+                | Lambda(param, expr) -> 
+                let methodAnnotation = if name = "pixel" then " : SV_TARGET" else ""
+                sprintf "%s %s(%s %s)%s{ %s };"   (expr.Type.Name |> mapType)
+                                                name
+                                                (param.Type.Name |> mapType)
+                                                param.Name
+                                                methodAnnotation
+                                                (methodBody expr)
+                | _ -> failwith "Expected a lambda"
+            | _ -> failwith "Unexpected entry point for shader function"
 
         let shader shaderMethodInfo =
-            let shaderMethodDeclaration expr =
-                /// The first line of the shader which defines the shader name, inputs and outputs
-                let shaderSignature(mi:MethodInfo) =
-                    let returnType = mi.ReturnType
-                    let methodName = mi.Name
-                    let ``optional return semantic`` = 
-                        match methodName with
-                        | "pixel" -> " : SV_TARGET"
-                        | _ -> ""
-
-                    /// For now we restrict shaders to single input parameters
-                    let shaderInput (mi:MethodInfo) =
-                        match mi.GetParameters() with
-                        | [|p|] -> p
-                        | _ -> failwith "Shader has to have exactly one input parameter which should be a struct."
-
-
-                    let parameter = shaderInput mi
-                    sprintf "%s %s(%s %s)%s" (mapType returnType.Name)
-                                                mi.Name 
-                                                parameter.ParameterType.Name 
-                                                parameter.Name
-                                                ``optional return semantic``
-                let formatShader = sprintf @"
-%s
-{
-%s
-};"
-                formatShader (shaderSignature shaderMethodInfo)
-                             (statements expr)
-
             match shaderMethodInfo with
-            | MethodWithReflectedDefinition(expr) -> shaderMethodDeclaration expr
+            | MethodWithReflectedDefinition(expr) -> 
+                shaderMethod shaderMethodInfo.Name expr
             | _ -> failwith(sprintf "Unexpected public method %s. All public methods are expected to have the 'ShaderMethod' attribute." shaderMethodInfo.Name)
         
         let methodName(mi:MethodInfo) = mi.Name
