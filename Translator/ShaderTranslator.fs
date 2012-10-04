@@ -111,8 +111,7 @@ module ShaderTranslator =
                                     "float3x3", "row_major float3x3"
                                     "Color4", "float4"
                                     "Single", "float"]
-    let private methodMapping = dict ["op_Multiply", "mul"
-                                      "saturatef", "saturate"]
+    let private methodMapping = dict ["saturatef", "saturate"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
             d.[key]
@@ -266,61 +265,49 @@ return o;"
     | body -> sprintf "return %s;" (hlsl body)
 
     and hlsl expr =
-        let (|PipeRight|_|) = function
-            |None,"op_PipeRight", [e;Lambda(var, Call(e2,mi, e3))] ->
-                /// Replace the last element in the list with the first expression 
-                let args = e::(e3 |> List.rev |> List.tail) |> List.rev
-                Some(hlsl(Expr.Call(mi, args)))
-            |None,"op_PipeRight", [e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
-                Some(hlsl(Expr.Call(mi, [e2; e1])))
-            |None,"op_PipeRight", exprList -> 
-                Some(string exprList)
-            //|None,"op_PipeRight",e2 -> failwith(sprintf "Unexpected Pipe %A" e2)
-            | _ -> None
-        let infix op e1 e2 = Some(sprintf "(%s) %s (%s)" (hlsl e1) op (hlsl e2))
-        let (|Operator|_|) = function
-            |None,"op_Subtraction", [e1;e2] 
-            |None,"subtract", [e1;e2] -> 
-                infix "-" e1 e2
-            |None,"op_Addition", [e1;e2] -> 
-                infix "+" e1 e2
-            |None, "op_Division", [e1;e2] ->
-                infix "/" e1 e2
-            |None, "op_Multiply", [e1;e2]->
-                let vectorMultiply = e1.Type = typeof<float3> && e2.Type = typeof<float3>
-                let scalarMultiply = e1.Type = typeof<float32>
-                if  scalarMultiply || vectorMultiply then
-                    infix "*" e1 e2
-                else
-                    None
-            |None, "op_UnaryNegation", [e1] ->
-                Some(sprintf "-(%s)" (hlsl e1))
-            | _ -> None
+        let infix op e1 e2 = sprintf "(%s) %s (%s)" (hlsl e1) op (hlsl e2)
+        let methodCall methodName args = 
+            sprintf "%s(%s)" (mapMethod methodName) 
+                             (argStr args) 
+        let isMatrix t =     
+            [typeof<float3x3>;typeof<float4x4>]
+            |> List.exists (fun a -> a = t)            
         match expr with
         | Var(var) -> var.Name
         | Value(obj,t) -> (string obj)
+        | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
+        | SpecificCall(<@ (-) @>) (_, _, [l;r])-> infix "-" l r
+        | SpecificCall(<@ (/) @>) (_, _, [l;r])-> infix "/" l r
+        | SpecificCall(<@ (*) @>) (_, _, [l;r])-> 
+            if isMatrix r.Type then
+                methodCall "mul" [l;r]
+            else
+                infix "*" l r
+        | SpecificCall(<@ (~-) @>) (_, _, [e])-> 
+            sprintf "-(%s)" (hlsl e)
+        | SpecificCall(<@ (|>) @>) (_, _, exprs)->
+            match exprs with
+            |[e;Lambda(var, Call(e2,mi, e3))] ->
+                /// Replace the last element in the list with the first expression 
+                let args = e::(e3 |> List.rev |> List.tail) |> List.rev
+                hlsl(Expr.Call(mi, args))
+            |[e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
+                hlsl(Expr.Call(mi, [e2; e1]))
+            | _ -> string exprs
+        | Call(Some(FieldGet(_,fi)), methodInfo, args) ->
+            sprintf "%s.%s" fi.Name (methodCall methodInfo.Name args)
         | Call(exprOpt, methodInfo, args) ->
-            let methodCall() = 
-                sprintf "%s(%s)" (mapMethod methodInfo.Name) 
-                                    (argStr args)                 
-            match exprOpt, methodInfo.Name, args with
-            | PipeRight(code) -> code
-            | Operator(code) -> code
-            | Some(FieldGet(_,fi)), _, _ ->
-                sprintf "%s.%s" fi.Name <| methodCall()
-            | _ -> methodCall()
-
+            methodCall methodInfo.Name args
         | PropertyGet(Some(input), pi, _) ->
             match input with
             | FieldGet(_, fi) -> pi.Name
             | _ -> sprintf "%s.%s" (string input) pi.Name
         | NewObject(constructorInfo, exprList) ->
-            let typeName = constructorInfo.DeclaringType.Name
-            match typeName with
-            // Interpret construction of matrices as a cast
-            | "float3x3"
-            | "float4x4" -> sprintf "(%s)(%s)" typeName (argStr exprList)
-            | typeName -> sprintf "%s(%s)" typeName (argStr exprList)
+            let t = constructorInfo.DeclaringType
+            if isMatrix t then
+                sprintf "(%s)(%s)" t.Name (argStr exprList)
+            else
+                sprintf "%s(%s)" t.Name (argStr exprList)
         | Let(var, e1, e2) ->
             match var.Name, e1, e2 with
             | /// Handle multiple levels of indirection such as input.Position.xyz
