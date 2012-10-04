@@ -297,7 +297,10 @@ return o;"
         | Call(Some(FieldGet(_,fi)), methodInfo, args) ->
             sprintf "%s.%s" fi.Name (methodCall methodInfo.Name args)
         | Call(exprOpt, methodInfo, args) ->
-            methodCall methodInfo.Name args
+            match methodInfo.Name, args with
+            | "subtract", [l;r] -> infix "-" r l
+            | "subtractFrom", [l;r] -> infix "-" l r
+            | name, _ -> methodCall name args
         | PropertyGet(Some(input), pi, _) ->
             match input with
             | FieldGet(_, fi) -> pi.Name

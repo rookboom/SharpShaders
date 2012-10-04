@@ -146,6 +146,16 @@ float3 ConvertWorld(PSInput input)
         assertShader expectedVS typeof<TestShaderWithMatrixCast>
 
     [<Fact>]
+    let ``Should convert 'subtract' to - operator``() =
+        let expected = @"return (2) - (1);"
+        Assert.Equal(expected, ShaderTranslator.methodBody <@ subtract 1 2 @>)
+
+    [<Fact>]
+    let ``Should convert 'subtractFrom' to - operator``() =
+        let expected = @"return (1) - (2);"
+        Assert.Equal(expected, ShaderTranslator.methodBody <@ subtractFrom 1 2 @>)
+
+    [<Fact>]
     let ``Should generate shader input structs in HLSL``() =            
         let expectedVSInput = @"
 struct VSInput

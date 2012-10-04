@@ -79,7 +79,7 @@ module BlinnPhong =
                 |> saturatef
             let specular = scene.Eye - worldPos
                            |> normalize
-                           |> (-) lightDir
+                           |> subtractFrom lightDir
                            |> normalize
                            |> dot normal
                            |> saturatef
