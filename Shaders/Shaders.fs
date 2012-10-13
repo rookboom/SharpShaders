@@ -21,6 +21,13 @@ module BlinnPhong =
             Light = light
             AmbientLight = ambientLight
             LightRangeSquared = lightRange }
+
+   [<Struct;ConstantPacking>]
+    type SceneConstants_IfPostSharpDidItsJob(eye:float3, light:float3, ambientLight:float3, lightRangeSquared:float32) =
+        member m.Eye = eye
+        member m.Light = light
+        member m.AmbientLight = ambientLight
+        member m.LightRangeSquared = lightRangeSquared
         
     [<Struct; StructLayout(LayoutKind.Sequential)>]
     type MaterialConstants(ambient:float32, diffuse:float32, specular:float32,shine:float32)  =

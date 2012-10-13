@@ -36,6 +36,12 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
+    <Reference Include="PostSharp">
+      <HintPath>..\External\PostSharp\PostSharp.dll</HintPath>
+    </Reference>
+    <Reference Include="PostSharp.Laos">
+      <HintPath>..\External\PostSharp\PostSharp.Laos.dll</HintPath>
+    </Reference>
     <Reference Include="SharpDX">
       <HintPath>..\External\SharpDX\Win8Desktop-net20\SharpDX.dll</HintPath>
     </Reference>
@@ -47,6 +53,7 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConstantPackingAttribute.fs" />
     <Compile Include="Shaders.fs" />
   </ItemGroup>
   <ItemGroup>

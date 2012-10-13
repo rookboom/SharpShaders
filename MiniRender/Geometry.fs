@@ -8,7 +8,7 @@ module Geometry =
     let pi = float32(Math.PI)
     let piBy2 = pi / 2.0f
     let twoPi = 2.0f * pi
-    /// We start by defining the vertices that form one face which consits of two triangles
+    /// We start by defining the vertices that form one face which consists of two triangles
     let private face =    [|Vector3(0.0f,0.0f,0.0f) 
                             Vector3(1.0f,0.0f,0.0f)
                             Vector3(0.0f,1.0f,0.0f)
