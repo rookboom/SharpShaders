@@ -274,6 +274,41 @@ struct PSInput
 Pad the last field or set the size using explicit packing.")
 
     [<Fact>]
+    let ``Standard for loops should be supported ``() =
+        let expr = <@ let mutable x = 0
+                      for i in 1..10 do
+                        x <- x*i 
+                      x@>
+        let expected = @"
+            int x = 0;
+            for (int i=1; i<=10; i++)
+            {
+                x = (x)*(i);
+            };
+            return x;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.hlsl expr)
+
+    [<Fact>]
+    let ``Higher order functions should be inlined ``() =
+        let perlin x = 0.5f
+        let absNoise = perlin >> abs
+        let fbmNoise pos noise =
+            let octaves = 8
+            let initialFrequency = 10.0f
+            let amplitude = 1.5f
+            let lacunarity = 3.0f
+            let mutable value = 0.0f
+            let mutable frequency = initialFrequency
+            let mutable amp = 1.0f
+            for i in 1..octaves do
+                value <- value + amp*noise(pos)
+                frequency <- frequency*lacunarity
+                amp <- amp * amplitude
+            value
+        fbmNoise 0.0f absNoise
+                
+
+    [<Fact>]
     /// <see>http://msdn.microsoft.com/en-us/library/bb509632.aspx</see>
     let ``Shader constant buffers and inputs should conform to HLSL packing rules ``() =
         let verify(t:Type) =

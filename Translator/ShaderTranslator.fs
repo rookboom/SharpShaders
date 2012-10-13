@@ -110,7 +110,8 @@ module ShaderTranslator =
     let private typeMapping = dict ["float4x4", "row_major matrix"
                                     "float3x3", "row_major float3x3"
                                     "Color4", "float4"
-                                    "Single", "float"]
+                                    "Single", "float"
+                                    "Int32", "int"]
     let private methodMapping = dict ["saturatef", "saturate"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
@@ -257,10 +258,9 @@ struct %s
 %s
 return o;" 
             format (mapType objectType.Name) assignments
-
-
     /// Multi-line statements has to start with a let binding
     | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
+    | Sequential(e1,e2) -> (hlsl e1) + (methodBody e2)
     /// This has to be a single line statement.
     | body -> sprintf "return %s;" (hlsl body)
 
@@ -331,6 +331,16 @@ return o;"
                 sprintf "%s\n%s" (assignment var e1)
                                  (methodBody e2)
         | FieldGet(Some(e),fi) -> fi.Name
+        | ForIntegerRangeLoop(i, Int32(first), Int32(last), dothis) ->
+            let formatForLoop = sprintf @"
+for (int %s=%d; %s <= %d; %s++)
+{
+    %s
+};"
+            let counter = i.Name
+            formatForLoop counter first counter last counter (hlsl dothis)
+        | VarSet(x, expr) ->
+            sprintf "%s = %s;\n" x.Name (hlsl expr)
         | expr -> failwith(sprintf "TODO: add support for more expressions like: %A" expr)
     and argStr args =
         args
