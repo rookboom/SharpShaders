@@ -6,8 +6,6 @@ open System.Runtime.InteropServices
 open SharpShaders.Math
 open SharpShaders
 
-type ShaderMethod = ReflectedDefinitionAttribute
-
 module BlinnPhong =
    [<Struct; StructLayout(LayoutKind.Explicit, Size=48)>]
     type SceneConstants =
@@ -102,87 +100,4 @@ module BlinnPhong =
             let color = tex.rgb * intensity 
             float4(color, 1.0f)
 
-module Diffuse =
-    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
-    type SceneConstants =
-        [<FieldOffset(0)>]  val LightDirection : float3
-        with
-        new(lightDir) = { LightDirection = lightDir}
-
-    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
-    type MaterialConstants =
-        [<FieldOffset(0)>]  val Diffuse : float3
-        with
-        new(diffuse) = { Diffuse = diffuse}
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type ObjectConstants(wvp:float4x4, w:float4x4) =
-        member m.WorldViewProjection = wvp
-        member m.World = w
-    
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type VSInput(p:float4, n:float3) =
-        member m.Position = p
-        member m.Normal = n
-
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
-    type PSInput(p:float4, n:float3) =
-        member m.PositionHS = p
-        member m.Normal = n
-
-    type Shader(scene:SceneConstants,
-                obj:ObjectConstants,
-                mat:MaterialConstants) =
-        let color lightDirection (materialDiffuse:float4) =  
-                normalize  
-                >> dot -lightDirection
-                >> mul materialDiffuse.rgb
-                >> saturate
-
-        [<ShaderMethod>]
-        member m.vertex(input:VSInput) =
-            PSInput(input.Position * obj.WorldViewProjection,
-                    input.Normal * float3x3(obj.World))    
-
-        [<ShaderMethod>]
-        member m.pixel(input:PSInput) =
-            let color = 
-                input.Normal 
-                |> normalize
-                |> dot -scene.LightDirection
-                |> mul mat.Diffuse
-                |> saturate
-            float4(color, 1.0f)
-
-module Simplistic =
-    //===================================================
-    [<Struct>]
-    type ObjectConstants =
-        val WorldViewProjection : float4x4
-        new (wvp) = { WorldViewProjection = wvp }
-
-    [<Struct>]
-    type VSInput =
-        val Position : float4
-        new (pos) = { Position = pos }
-
-    [<Struct>]
-    type PSInput =
-        val PositionHS : float4
-        new (pos) = { PositionHS = pos }
-
-    [<Struct>]
-    type MaterialConstants =
-        val MaterialDiffuse : Color4
-        new (color) = { MaterialDiffuse = color }
-
-    type Shader(obj:ObjectConstants, mat:MaterialConstants) =
-
-        [<ShaderMethod>]
-        member m.vertex(input:VSInput) =
-            PSInput(input.Position * obj.WorldViewProjection)
-
-        [<ShaderMethod>]
-        member m.pixel(input:PSInput) =
-            float4(1.0f, 0.0f, 1.0f,1.0f)
 

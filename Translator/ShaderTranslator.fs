@@ -236,10 +236,10 @@ struct %s
         | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
         // Apply 'expand' recursively on all sub-expressions
         | ExprShape.ShapeVar v -> Expr.Var v
-        (*| Patterns.Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) ->
+        | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) ->
             let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
             let res = Expr.Applications(this, [ for a in args -> [a]])
-            expand vars res*)
+            expand vars res
         | ExprShape.ShapeLambda(v, expr) -> 
             Expr.Lambda(v, expand vars expr)
         | ExprShape.ShapeCombination(o, exprs) ->
@@ -373,6 +373,9 @@ struct %s
                 formatForLoop counter first counter last counter (hlsl dothis)
             | VarSet(x, expr) ->
                 sprintf "%s = %s;\n" x.Name (hlsl expr)
+            | NewTuple(exprs) ->
+                argStr exprs
+            | TupleGet(x, i) -> hlsl x
             | expr -> failwith(sprintf "TODO: add support for more expressions like: %A" expr)
         and argStr args =
             args

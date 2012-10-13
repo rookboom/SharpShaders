@@ -49,6 +49,32 @@ type TestShaderWithMatrixCast(obj:Shaders.BlinnPhong.ObjectConstants) =
          
 //=======================================================================================
 module ShaderGenerationTests =
+    let assertShader expected (t:Type) =
+        let shaderCode = ShaderTranslator.shaders t
+
+        match shaderCode |> Seq.toList with
+        | [s] ->
+            Assert.EqualIgnoreWhitespace(expected, s)
+        | _ -> failwith "Expected exactly 1 shader method for this dummy shader"         
+
+    [<ReflectedDefinition>]
+    let color x y z = float3(x,y,z)
+    //=======================================================================================
+    type TestShaderWithExternalMethod(mat:Simplistic.MaterialConstants) =
+        [<ReflectedDefinition>]
+        member m.pixel(input:Simplistic.PSInput) =
+            let final = color 0.0f 0.5f 1.0f
+            float4(final,1.0f)
+    [<Fact>]
+    let ``External methods should be inlined``() =
+        let expectedPS = @"
+float4 pixel(PSInput input) : SV_TARGET
+{
+    float3 final = float3(0,0.5,1);
+    return float4(final, 1);
+};"
+        assertShader expectedPS typeof<TestShaderWithExternalMethod>
+
     [<Fact>]
     let ``Should use multiplication insteadofmul operator for scalar types``() =
         let expr = <@ let x = 1.0f * float3(1.0f,1.0f, 1.0f)
@@ -99,14 +125,6 @@ cbuffer ObjectConstants
         Assert.EqualIgnoreWhitespace(@"
 float4 x = float4(1, 1, 1, 1);
 return x;", ShaderTranslator.methodBody expr)          
-
-    let assertShader expected (t:Type) =
-        let shaderCode = ShaderTranslator.shaders t
-
-        match shaderCode |> Seq.toList with
-        | [s] ->
-            Assert.EqualIgnoreWhitespace(expected, s)
-        | _ -> failwith "Expected exactly 1 shader method for this dummy shader"         
 
     [<Fact>]
     let ``Should allow pixel shaders that end with FieldGet expression as only line``() =

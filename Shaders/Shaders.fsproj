@@ -54,7 +54,10 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ConstantPackingAttribute.fs" />
-    <Compile Include="Shaders.fs" />
+    <Compile Include="Simplistic.fs" />
+    <Compile Include="BlinnPhong.fs" />
+    <Compile Include="Diffuse.fs" />
+    <Compile Include="Marble.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Translator\SharpShaders.fsproj">

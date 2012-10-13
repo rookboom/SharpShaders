@@ -1,0 +1,5 @@
+- Add support for methods with tuples
+	Currently we only support method of the following form
+	let foo x y = x + y
+	We need support for
+	let foo(x,y) = x + y

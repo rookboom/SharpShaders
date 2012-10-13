@@ -15,6 +15,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "ColoredCube", "Samples\Colo
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Golfball", "Samples\Golfball\Golfball.fsproj", "{2F026469-EFC2-454E-891E-763170C72F47}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PerlinNoise", "Samples\PerlinNoise\PerlinNoise.fsproj", "{FD7CA865-8BD8-4D6E-B510-09FA6F016F36}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -45,6 +47,10 @@ Global
 		{A80D56D4-E3AC-4F98-AE26-93962F468E97}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A80D56D4-E3AC-4F98-AE26-93962F468E97}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A80D56D4-E3AC-4F98-AE26-93962F468E97}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FD7CA865-8BD8-4D6E-B510-09FA6F016F36}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FD7CA865-8BD8-4D6E-B510-09FA6F016F36}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FD7CA865-8BD8-4D6E-B510-09FA6F016F36}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FD7CA865-8BD8-4D6E-B510-09FA6F016F36}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -52,5 +58,6 @@ Global
 	GlobalSection(NestedProjects) = preSolution
 		{2F026469-EFC2-454E-891E-763170C72F47} = {194E6F55-6553-41DC-8338-4204157C4E22}
 		{79711469-630A-416D-B517-ABD8E56062C2} = {194E6F55-6553-41DC-8338-4204157C4E22}
+		{FD7CA865-8BD8-4D6E-B510-09FA6F016F36} = {194E6F55-6553-41DC-8338-4204157C4E22}
 	EndGlobalSection
 EndGlobal
