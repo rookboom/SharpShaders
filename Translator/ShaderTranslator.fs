@@ -112,7 +112,8 @@ module ShaderTranslator =
                                     "Color4", "float4"
                                     "Single", "float"
                                     "Int32", "int"]
-    let private methodMapping = dict ["saturatef", "saturate"]
+    let private methodMapping = dict ["saturatef", "saturate"
+                                      "Abs", "abs"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
             d.[key]
@@ -227,126 +228,159 @@ struct %s
         |> Seq.map parameterType
         |> Seq.map formatStruct
 
-    /// Convert an F# expression to HLSL
-    let rec methodBody = function
-    | NewObject(constructorInfo, exprList) ->
-        /// When the shader consists of only a single new object expression, is assumed that this object type
-        /// is the same as the shader output. 
-        match constructorInfo.DeclaringType with
-        /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
-        | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
-        | objectType -> 
-            /// To translate anothing other than basic types to HLSL, we need to assign each constructor 
-            /// parameter statement to the matching output field. For simplicity we assume that the constructor 
-            /// parameters are in the same order as the declared fields.
-            /// The results is a sequence of statements of the following form:
-            /// o.field1 = constructorExpression1;
-            let fieldAssignment(left, right) =
-                sprintf "o.%s = %s;" left right
-            let fieldNames =
-                let name(p:PropertyInfo) = p.Name
-                objectType.GetProperties()
-                |> Seq.map name
-            let assignments =
-                exprList
-                |> Seq.map hlsl
-                |> Seq.zip fieldNames
-                |> Seq.map fieldAssignment
-                |> String.concat "\n"
-            let format = sprintf @"
-%s o;
-%s
-return o;" 
-            format (mapType objectType.Name) assignments
-    /// Multi-line statements has to start with a let binding
-    | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
-    | Sequential(e1,e2) -> (hlsl e1) + (methodBody e2)
-    /// This has to be a single line statement.
-    | body -> sprintf "return %s;" (hlsl body)
-
-    and hlsl expr =
-        let infix op e1 e2 = sprintf "(%s) %s (%s)" (hlsl e1) op (hlsl e2)
-        let methodCall methodName args = 
-            sprintf "%s(%s)" (mapMethod methodName) 
-                             (argStr args) 
-        let isMatrix t =     
-            [typeof<float3x3>;typeof<float4x4>]
-            |> List.exists (fun a -> a = t)            
+    let rec private expand vars expr = 
+      // First recursively process & replace variables
+      let expanded = 
         match expr with
-        | Var(var) -> var.Name
-        | Value(obj,t) -> (string obj)
-        | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
-        | SpecificCall(<@ (-) @>) (_, _, [l;r])-> infix "-" l r
-        | SpecificCall(<@ (/) @>) (_, _, [l;r])-> infix "/" l r
-        | SpecificCall(<@ (*) @>) (_, _, [l;r])-> 
-            if isMatrix r.Type then
-                methodCall "mul" [l;r]
-            else
-                infix "*" l r
-        | SpecificCall(<@ (~-) @>) (_, _, [e])-> 
-            sprintf "-(%s)" (hlsl e)
-        | SpecificCall(<@ (|>) @>) (_, _, exprs)->
-            match exprs with
-            |[e;Lambda(var, Call(e2,mi, e3))] ->
-                /// Replace the last element in the list with the first expression 
-                let args = e::(e3 |> List.rev |> List.tail) |> List.rev
-                hlsl(Expr.Call(mi, args))
-            |[e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
-                hlsl(Expr.Call(mi, [e2; e1]))
-            | _ -> string exprs
-        | Call(Some(FieldGet(_,fi)), methodInfo, args) ->
-            sprintf "%s.%s" fi.Name (methodCall methodInfo.Name args)
-        | Call(exprOpt, methodInfo, args) ->
-            match methodInfo.Name, args with
-            | "subtract", [l;r] -> infix "-" r l
-            | "subtractFrom", [l;r] -> infix "-" l r
-            | name, _ -> methodCall name args
-        | PropertyGet(Some(input), pi, _) ->
-            match input with
-            | FieldGet(_, fi) -> pi.Name
-            | _ -> sprintf "%s.%s" (string input) pi.Name
+        // If the variable has an assignment, then replace it with the expression
+        | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
+        // Apply 'expand' recursively on all sub-expressions
+        | ExprShape.ShapeVar v -> Expr.Var v
+        (*| Patterns.Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) ->
+            let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+            let res = Expr.Applications(this, [ for a in args -> [a]])
+            expand vars res*)
+        | ExprShape.ShapeLambda(v, expr) -> 
+            Expr.Lambda(v, expand vars expr)
+        | ExprShape.ShapeCombination(o, exprs) ->
+            ExprShape.RebuildShapeCombination(o, List.map (expand vars) exprs)
+    
+      // After expanding, try reducing the expression - we can replace 'let'
+      // expressions and applications where the first argument is lambda
+      match expanded with
+      | Application(ExprShape.ShapeLambda(v, body), assign) ->
+        expand (Map.add v (expand vars assign) vars) body
+      | Let(v, Lambda(input,expr), body) ->
+        let assign = Expr.Lambda(input, expr)
+        expand (Map.add v (expand vars assign) vars) body
+      | Call(None,opComposeRight,[Lambda(v1,m1); Lambda(v2,m2)]) ->
+        let assign = expand vars m1
+        Expr.Lambda(v1, expand (Map.add v2 (expand vars assign) vars) m2)
+      | _ -> expanded
+
+    /// Convert an F# expression to HLSL
+    let methodBody expr = 
+        let rec methodBody = function
         | NewObject(constructorInfo, exprList) ->
-            let t = constructorInfo.DeclaringType
-            if isMatrix t then
-                sprintf "(%s)(%s)" t.Name (argStr exprList)
-            else
-                sprintf "%s(%s)" t.Name (argStr exprList)
-        | Let(var, e1, e2) ->
-            match var.Name, e1, e2 with
-            | /// Handle multiple levels of indirection such as input.Position.xyz
-              /// F# creates temporary objects which are not needed in HLSL
-              "copyOfStruct", 
-              PropertyGet(Some(x),pi, _),
-              PropertyGet(_,pi2, _) ->
-                sprintf "(%s).%s.%s" (hlsl x) (pi.Name) (pi2.Name)
-            | _ ->
-                let rec assignment(outer:Var) (right:Expr) =
-                    match right with 
-                    | Let(inner,e1,e2) -> sprintf "%s\n%s" (assignment inner e1)
-                                                            (assignment outer e2)
-                    | _ -> sprintf "%s %s = %s;" (mapType(outer.Type.Name))
-                                                    outer.Name 
-                                                    (hlsl right)
-
-                sprintf "%s\n%s" (assignment var e1)
-                                 (methodBody e2)
-        | FieldGet(Some(e),fi) -> fi.Name
-        | ForIntegerRangeLoop(i, Int32(first), Int32(last), dothis) ->
-            let formatForLoop = sprintf @"
-for (int %s=%d; %s <= %d; %s++)
-{
+            /// When the shader consists of only a single new object expression, is assumed that this object type
+            /// is the same as the shader output. 
+            match constructorInfo.DeclaringType with
+            /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
+            | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
+            | objectType -> 
+                /// To translate anothing other than basic types to HLSL, we need to assign each constructor 
+                /// parameter statement to the matching output field. For simplicity we assume that the constructor 
+                /// parameters are in the same order as the declared fields.
+                /// The results is a sequence of statements of the following form:
+                /// o.field1 = constructorExpression1;
+                let fieldAssignment(left, right) =
+                    sprintf "o.%s = %s;" left right
+                let fieldNames =
+                    let name(p:PropertyInfo) = p.Name
+                    objectType.GetProperties()
+                    |> Seq.map name
+                let assignments =
+                    exprList
+                    |> Seq.map hlsl
+                    |> Seq.zip fieldNames
+                    |> Seq.map fieldAssignment
+                    |> String.concat "\n"
+                let format = sprintf @"
+    %s o;
     %s
-};"
-            let counter = i.Name
-            formatForLoop counter first counter last counter (hlsl dothis)
-        | VarSet(x, expr) ->
-            sprintf "%s = %s;\n" x.Name (hlsl expr)
-        | expr -> failwith(sprintf "TODO: add support for more expressions like: %A" expr)
-    and argStr args =
-        args
-        |> Seq.map hlsl
-        |> String.concat ","
+    return o;" 
+                format (mapType objectType.Name) assignments
+        /// Multi-line statements has to start with a let binding
+        | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
+        | Sequential(e1,e2) -> (hlsl e1) + (methodBody e2)
+        /// This has to be a single line statement.
+        | body -> sprintf "return %s;" (hlsl body)
 
+        and hlsl expr =
+            let infix op e1 e2 = sprintf "(%s) %s (%s)" (hlsl e1) op (hlsl e2)
+            let methodCall methodName args = 
+                sprintf "%s(%s)" (mapMethod methodName) 
+                                 (argStr args) 
+            let isMatrix t =     
+                [typeof<float3x3>;typeof<float4x4>]
+                |> List.exists (fun a -> a = t)            
+            match expr with
+            | Var(var) -> var.Name
+            | Value(obj,t) -> (string obj)
+            | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
+            | SpecificCall(<@ (-) @>) (_, _, [l;r])-> infix "-" l r
+            | SpecificCall(<@ (/) @>) (_, _, [l;r])-> infix "/" l r
+            | SpecificCall(<@ (*) @>) (_, _, [l;r])-> 
+                if isMatrix r.Type then
+                    methodCall "mul" [l;r]
+                else
+                    infix "*" l r
+            | SpecificCall(<@ (~-) @>) (_, _, [e])-> 
+                sprintf "-(%s)" (hlsl e)
+            | SpecificCall(<@ (|>) @>) (_, _, exprs)->
+                match exprs with
+                |[e;Lambda(var, Call(e2,mi, e3))] ->
+                    /// Replace the last element in the list with the first expression 
+                    let args = e::(e3 |> List.rev |> List.tail) |> List.rev
+                    hlsl(Expr.Call(mi, args))
+                |[e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
+                    hlsl(Expr.Call(mi, [e2; e1]))
+                | _ -> string exprs
+            | Call(Some(FieldGet(_,fi)), methodInfo, args) ->
+                sprintf "%s.%s" fi.Name (methodCall methodInfo.Name args)
+            | Call(exprOpt, methodInfo, args) ->
+                match methodInfo.Name, args with
+                | "subtract", [l;r] -> infix "-" r l
+                | "subtractFrom", [l;r] -> infix "-" l r
+                | name, _ -> methodCall name args
+            | PropertyGet(Some(input), pi, _) ->
+                match input with
+                | FieldGet(_, fi) -> pi.Name
+                | _ -> sprintf "%s.%s" (string input) pi.Name
+            | NewObject(constructorInfo, exprList) ->
+                let t = constructorInfo.DeclaringType
+                if isMatrix t then
+                    sprintf "(%s)(%s)" t.Name (argStr exprList)
+                else
+                    sprintf "%s(%s)" t.Name (argStr exprList)
+            | Let(var, e1, e2) ->
+                match var.Name, e1, e2 with
+                | /// Handle multiple levels of indirection such as input.Position.xyz
+                  /// F# creates temporary objects which are not needed in HLSL
+                  "copyOfStruct", 
+                  PropertyGet(Some(x),pi, _),
+                  PropertyGet(_,pi2, _) ->
+                    sprintf "(%s).%s.%s" (hlsl x) (pi.Name) (pi2.Name)
+                | _ ->
+                    let rec assignment(outer:Var) (right:Expr) =
+                        match right with 
+                        | Let(inner,e1,e2) -> sprintf "%s\n%s" (assignment inner e1)
+                                                                (assignment outer e2)
+                        | _ -> sprintf "%s %s = %s;" (mapType(outer.Type.Name))
+                                                        outer.Name 
+                                                        (hlsl right)
+
+                    sprintf "%s\n%s" (assignment var e1)
+                                     (methodBody e2)
+            | FieldGet(Some(e),fi) -> fi.Name
+            | ForIntegerRangeLoop(i, Int32(first), Int32(last), dothis) ->
+                let formatForLoop = sprintf @"
+    for (int %s=%d; %s <= %d; %s++)
+    {
+        %s
+    };"
+                let counter = i.Name
+                formatForLoop counter first counter last counter (hlsl dothis)
+            | VarSet(x, expr) ->
+                sprintf "%s = %s;\n" x.Name (hlsl expr)
+            | expr -> failwith(sprintf "TODO: add support for more expressions like: %A" expr)
+        and argStr args =
+            args
+            |> Seq.map hlsl
+            |> String.concat ","
+        (* Since we do not support inner functions, we will inline all local function definitions
+           by replacing all function definitions with their body, and then replacing the application *)
+        methodBody(expand Map.empty expr)
     /// A tuple representing the generated HLSL for the shader method as the first value
     /// and the method name as the second.
     let shaders(t:Type) =

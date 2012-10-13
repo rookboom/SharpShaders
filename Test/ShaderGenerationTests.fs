@@ -55,7 +55,7 @@ module ShaderGenerationTests =
                       x @>
         Assert.EqualIgnoreWhitespace(@"
 float3 x = (1) * (float3(1,1,1));
-return x;", ShaderTranslator.hlsl expr)      
+return x;", ShaderTranslator.methodBody expr)      
     
     [<Fact>]
     let ``Should generate constantBuffer in HLSL``() =            
@@ -98,7 +98,7 @@ cbuffer ObjectConstants
                       x @>
         Assert.EqualIgnoreWhitespace(@"
 float4 x = float4(1, 1, 1, 1);
-return x;", ShaderTranslator.hlsl expr)          
+return x;", ShaderTranslator.methodBody expr)          
 
     let assertShader expected (t:Type) =
         let shaderCode = ShaderTranslator.shaders t
@@ -286,10 +286,62 @@ Pad the last field or set the size using explicit packing.")
                 x = (x)*(i);
             };
             return x;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.hlsl expr)
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Functions should be inlined ``() =
+        let expr = 
+            <@  let foo x = x*x
+                let y = foo 5
+                y  @>
+        let expected = @"
+            int y = (5)*(5);
+            return y;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
     let ``Higher order functions should be inlined ``() =
+        let expr = 
+            <@  let square x = x*x
+                let double x = x+x
+                let add x f = x + f(x)
+                let y = add 5 square
+                let z = add 5 double
+                y+z  @>
+        let expected = @"
+            int y = (5) + ((5)*(5));
+            int z = (5) + ((5)+(5));
+            return (y)+(z);"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Function composition with existing function``() =
+        let expr = 
+            <@  let perlin x = x*x
+                let absNoise = perlin >> abs
+                let y = absNoise 5
+                y  @>
+        let expected = @"
+            int y = abs((5)*(5));
+            return y;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Multiple function composition ``() =
+        let expr = 
+            <@  let square x = x*x
+                let double x = x+x
+                let half x = x/2
+                let halfSquaredDouble = double >> square >> half
+                let y = halfSquaredDouble 5
+                y  @>
+        let expected = @"
+            int y = (((5)+(5))*((5)+(5)))/(2);
+            return y;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Perlin Noise ``() =
         let perlin x = 0.5f
         let absNoise = perlin >> abs
         let fbmNoise pos noise =
