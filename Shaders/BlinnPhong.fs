@@ -8,7 +8,7 @@ open SharpShaders
 
 module BlinnPhong =
    [<Struct; StructLayout(LayoutKind.Explicit, Size=48)>]
-    type SceneConstants =
+    type SceneConstants_IfYouDoNotHavePostSharp =
         [<FieldOffset(0)>]  val Eye             : float3
         [<FieldOffset(16)>] val Light  : float3
         [<FieldOffset(32)>] val AmbientLight    : float3
@@ -20,32 +20,32 @@ module BlinnPhong =
             AmbientLight = ambientLight
             LightRangeSquared = lightRange }
 
-   [<Struct;ConstantPacking>]
-    type SceneConstants_IfPostSharpDidItsJob(eye:float3, light:float3, ambientLight:float3, lightRangeSquared:float32) =
+   [<Struct; ConstantPacking>]
+    type SceneConstants(eye:float3, light:float3, ambientLight:float3, lightRangeSquared:float32) =
         member m.Eye = eye
         member m.Light = light
         member m.AmbientLight = ambientLight
         member m.LightRangeSquared = lightRangeSquared
         
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct; ConstantPacking>]
     type MaterialConstants(ambient:float32, diffuse:float32, specular:float32,shine:float32)  =
         member m.Ambient = ambient
         member m.Diffuse = diffuse
         member m.Specular = specular
         member m.Shine = shine
 
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct; ConstantPacking>]
     type ObjectConstants(wvp:float4x4, w:float4x4) =
         member m.WorldViewProjection = wvp
         member m.World = w
     
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct>]
     type VSInput(p:float4, n:float3, uv:float2) =
         member m.Position = p
         member m.Normal = n
         member m.UV = uv
 
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct>]
     type PSInput(p:float4, wp:float3, n:float3, uv:float2) =
         member m.PositionHS = p
         member m.PositionWS = wp

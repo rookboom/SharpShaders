@@ -44,7 +44,7 @@ open PostSharp.Reflection
                 let enforceBoundary (offset, aspects) (field:FieldInfo) =
                     let fieldSize = Marshal.SizeOf(field.FieldType)
                     let alignedOffset = 
-                        let next16ByteBoundary = offset + 16 - offset%16
+                        let next16ByteBoundary = align 16 offset
                         let nextOffset = offset + fieldSize
                         if nextOffset > next16ByteBoundary then
                             // It is only acceptable to cross a 16 byte boundary if the field size is bigger

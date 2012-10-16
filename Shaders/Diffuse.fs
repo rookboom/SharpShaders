@@ -6,29 +6,25 @@ open System.Runtime.InteropServices
 open SharpShaders
 
 module Diffuse =
-    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
-    type SceneConstants =
-        [<FieldOffset(0)>]  val LightDirection : float3
-        with
-        new(lightDir) = { LightDirection = lightDir}
+    [<Struct; ConstantPacking>]
+    type SceneConstants(lightDir:float3) =
+        member m.LightDirection = lightDir
 
-    [<Struct; StructLayout(LayoutKind.Explicit, Size=16)>]
-    type MaterialConstants =
-        [<FieldOffset(0)>]  val Diffuse : float3
-        with
-        new(diffuse) = { Diffuse = diffuse}
+    [<Struct; ConstantPacking>]
+    type MaterialConstants(diffuse:float3) =
+        member m.Diffuse = diffuse
 
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct; ConstantPacking>]
     type ObjectConstants(wvp:float4x4, w:float4x4) =
         member m.WorldViewProjection = wvp
         member m.World = w
     
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct>]
     type VSInput(p:float4, n:float3) =
         member m.Position = p
         member m.Normal = n
 
-    [<Struct; StructLayout(LayoutKind.Sequential)>]
+    [<Struct>]
     type PSInput(p:float4, n:float3) =
         member m.PositionHS = p
         member m.Normal = n

@@ -292,18 +292,50 @@ struct PSInput
 Pad the last field or set the size using explicit packing.")
 
     [<Fact>]
-    let ``Standard for loops should be supported ``() =
-        let expr = <@ let mutable x = 0
-                      for i in 1..10 do
+    let ``Standard for loops should be unrolled ``() =
+        let expr = <@ let mutable x = 1
+                      let mutable y = 2
+                      for i in 1..3 do
                         x <- x*i 
-                      x@>
+                        y <- x*y 
+                      y@>
+        let rec loop i x y =
+            if i <= 3 then
+                loop (i + 1) (x*i) (x*y)
+            else
+                y
+        let y = 
+            let x = 1
+            let y = 2
+            let x = x*1
+            let y = x*y
+            let x = x*2
+            let y = x*y
+            let x = x*3
+            let y = x*y
+            y
+
+        loop 1 1 2
         let expected = @"
             int x = 0;
-            for (int i=1; i<=10; i++)
-            {
-                x = (x)*(i);
-            };
-            return x;"
+            int y = 0;
+            y = ((((1)*(1))*(2))*(3))*((((1)*(1))*(2))*(((1)*(1))*(2a)));
+            return y;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+    
+    [<ShaderMethod>]
+    let foo z =
+        let mutable x = z*2
+        x <- x + 2
+        x  
+    [<Fact>]
+    let ``External methods should not be inlined. They are generated seperately and treated as function calls ``() =
+
+        let expr = <@ let d = foo 5 
+                      d@>
+        let expected = @"
+            int d = foo(5);
+            return d;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
@@ -359,26 +391,6 @@ Pad the last field or set the size using explicit packing.")
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
-    let ``Perlin Noise ``() =
-        let perlin x = 0.5f
-        let absNoise = perlin >> abs
-        let fbmNoise pos noise =
-            let octaves = 8
-            let initialFrequency = 10.0f
-            let amplitude = 1.5f
-            let lacunarity = 3.0f
-            let mutable value = 0.0f
-            let mutable frequency = initialFrequency
-            let mutable amp = 1.0f
-            for i in 1..octaves do
-                value <- value + amp*noise(pos)
-                frequency <- frequency*lacunarity
-                amp <- amp * amplitude
-            value
-        fbmNoise 0.0f absNoise
-                
-
-    [<Fact>]
     /// <see>http://msdn.microsoft.com/en-us/library/bb509632.aspx</see>
     let ``Shader constant buffers and inputs should conform to HLSL packing rules ``() =
         let verify(t:Type) =
@@ -387,14 +399,19 @@ Pad the last field or set the size using explicit packing.")
             let verifyBoundary offset (field:FieldInfo) =
                 let fieldOffsetAttrib = field.GetCustomAttribute(typeof<FieldOffsetAttribute>) :?> FieldOffsetAttribute
                 let fieldSize = Marshal.SizeOf(field.FieldType)
+                let align boundary n = 
+                    if n % boundary = 0 then
+                        n
+                    else
+                        n + boundary - n % boundary
                 if not(offset % 4 = 0) then
                     // We need explicit packing to enforce placing fields on a four byte boundary
                     Assert.NotNull(fieldOffsetAttrib)
-                    let alignedOffset = offset + offset%4
+                    let alignedOffset = align 4 offset
                     Assert.Equal(alignedOffset, fieldOffsetAttrib.Value)
                     alignedOffset + fieldSize
                 else
-                    let alignedOffset = offset + 16 - offset%16
+                    let alignedOffset = align 16 offset
                     let nextOffset = offset + fieldSize
                     if nextOffset > alignedOffset then
                         // It is only acceptable to cross a 16 byte boundary if the field size is bigger
@@ -419,7 +436,7 @@ Pad the last field or set the size using explicit packing.")
                        |> Seq.fold verifyBoundary 0
             /// The size of shader constants should always be 16 byte aligned
             if t.IsExplicitLayout then 
-                let paddedSize = t.StructLayoutAttribute.Size
+                let paddedSize = size
                 assert16ByteAligned paddedSize
                 Assert.Equal(t.StructLayoutAttribute.Size, paddedSize)
             else 
