@@ -41,6 +41,7 @@ module Math =
         val z : float32
         new (x,y,z) = { x = x; y = y; z = z }
         new(v:Vector3) ={ x = v.X; y = v.Y; z = v.Z}
+        member m.xy = float2(m.x,m.y)
 
         static member (%) (v:float3, s:float32) = 
             float3(v.x % s, v.y % s, v.z % s)
@@ -49,6 +50,8 @@ module Math =
         static member (*) (v:float3, s:float32) = s*v
         static member (*) (v1:float3, v2:float3) =
             float3(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z)
+        static member (/) (v:float3, s:float32) = 
+            float3(v.x/s, v.y/s, v.z/s)
         static member normalize(v:float3) =
             let length = sqrt(v.x*v.x + v.y*v.y + v.z*v.z)
             float3(v.x/length, v.y/length, v.z/length)
@@ -96,8 +99,12 @@ module Math =
         static member (*) (s:float32, v:float4) =
             float4(s*v.x, s*v.y, s*v.z, s*v.w)
         static member (*) (v:float4, s:float32) = s*v
+        static member (/) (v:float4, s:float32) = 
+            float4(v.x/s, v.y/s, v.z/s, v.w/s)
         static member (+) (v1:float4, v2:float4) = 
             float4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w)
+        static member (+) (v:float4, s:float32) = 
+            float4(v.x + s, v.y + s, v.z + s, v.w + s)
         static member (-) (v1:float4, v2:float4) = 
             float4(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.w - v2.w)
         member m.xyz = float3(m.x, m.y, m.z)
