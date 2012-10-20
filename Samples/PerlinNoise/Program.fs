@@ -3,6 +3,7 @@ open SharpShaders.Math
 open SharpShaders.Shaders
 open SharpDX.Windows
 open SharpDX
+open SharpDX.Direct3D11
 open System.Windows.Forms
 open System.Diagnostics
 open System.Drawing
@@ -14,7 +15,17 @@ let saveNoiseSlice =
     let setColor i j (c:float32) = 
         let shade = int((c+1.0f)/2.0f*255.0f)
         bmp.SetPixel(i, j, Color.FromArgb(255, shade, shade, shade))
-    Perlin.noise2D()
+    let marbleShader = Marble.Shader(Diffuse.SceneConstants(),
+                                     Diffuse.ObjectConstants(),
+                                     Marble.MaterialConstants(),
+                                     CpuTexture2D(PerlinTexture.permutation2D),
+                                     CpuTexture1D(
+                                        PerlinTexture.permutedGradients
+                                        |> Array.map (fun f -> float4(f, 1.0f))),
+                                     SamplerStateDescription())
+
+
+    marbleShader.noise2D()
     |> Array2D.iteri setColor
     bmp.Save("noise2D.jpg", Imaging.ImageFormat.Png) |> ignore
 

@@ -60,7 +60,7 @@ module PerlinReference =
                                     grad(p.[BA+1], x-1.0, y  , z-1.0 )), // OF CUBE
                             lerp(u, grad(p.[AB+1], x  , y-1.0, z-1.0 ),
                                     grad(p.[BB+1], x-1.0, y-1.0, z-1.0 ))));
-module Perlin =
+module PerlinTexture =
     let private permutation = 
             [| 151;160;137;91;90;15;
             131;13;201;95;96;53;194;233;7;225;140;36;103;30;69;142;8;99;37;240;21;10;23;
@@ -97,51 +97,6 @@ module Perlin =
         let permGrad n = gradients.[(perm n) % 16]
         Array.init 256 permGrad
     let sample x = int(x*256.0f) % 256
-    let gradperm(x, p) = 
-        // this is our gradient sampling function on CPU
-        let grad = permutedGradients.[sample x]
-        dot grad p
-    let perm2d(pos:float2) = 
-        // This is our texture sampling function on CPU
-        permutation2D.[sample pos.x, sample pos.y]
-
-    let noise(pos:float3) =
-        let P = (floor pos) % 256.0f / 256.0f
-        let p = pos - floor(pos)
-        let one = 1.0f / 256.0f
-        let f = p * p * p * (p * (p * 6.0f - 15.0f) + 10.0f)
-
-        // Find the random noise values at the 8 corners of the surrounding unit cube
-        let AA = perm2d(P.xy) + P.z
-        let corner t x y z = gradperm(t, p - float3(x,y,z))
-        let left =  float4(corner (AA.x)      0.0f  0.0f  0.0f,
-                           corner (AA.x+one)  0.0f  0.0f  1.0f,
-                           corner (AA.y)      0.0f  1.0f  0.0f,
-                           corner (AA.y+one)  0.0f  1.0f  1.0f)
-        let right = float4(corner (AA.z)      1.0f  0.0f  0.0f,
-                           corner (AA.z+one)  1.0f  0.0f  1.0f,
-                           corner (AA.w)      1.0f  1.0f  0.0f,
-                           corner (AA.w+one)  1.0f  1.0f  1.0f)
-        // Think of the cube vertices as two quads, one at x=0 and one at x=1
-        // Reduce the cube to a single quad by interpolating in x
-        let topDown = lerp(left, right, f.x)
-        // The quad vertices form two line sections, one at y = 0 and one at y = 1
-        // Reduce the quad to a single line section by interpolating in y
-        let frontBack = lerp(topDown.xy, topDown.zw, f.y)
-        // Then reduce the line section to a point by interpolating in z
-        lerpf(frontBack.x, frontBack.y, f.z)
-
-    // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
-    let noise3D() =
-        let noise i j k = noise(float3(float32 i/256.0f, float32 j/256.0f, float32 k/256.0f))
-        Array3D.init 256 256 256 noise
-
-    let noise2D() =
-        let octave = 8.0f
-        //let noise i j = float32(PerlinReference.noise((float i)/octave, (float j)/octave, 0.0))
-        let noise i j = noise(float3(float32 i/octave, float32 j/octave, 0.0f))
-        Array2D.init 512 512 noise
-
 
 module Marble =
     [<Struct; ConstantPacking>]
@@ -159,7 +114,56 @@ module Marble =
 
     type Shader(scene:Diffuse.SceneConstants,
                 obj:Diffuse.ObjectConstants,
-                mat:MaterialConstants) =
+                mat:MaterialConstants,
+                permutation:Texture,
+                gradients:Texture,
+                pointSampler:SamplerStateDescription) =
+
+        let gradperm(x:float32, p) = 
+            // this is our gradient sampling function on CPU
+            let grad = gradients.Sample(pointSampler, x)
+            dot grad.xyz p
+        
+        let perm2d(pos:float2) = 
+            // This is our texture sampling function on CPU
+            permutation.Sample(pointSampler, pos)
+
+        let noise(pos:float3) =
+            let P = (floor pos) % 256.0f / 256.0f
+            let p = pos - floor(pos)
+            let one = 1.0f / 256.0f
+            let f = p * p * p * (p * (p * 6.0f - 15.0f) + 10.0f)
+
+            // Find the random noise values at the 8 corners of the surrounding unit cube
+            let AA = perm2d(P.xy) + P.z
+            let corner t x y z = gradperm(t, p - float3(x,y,z))
+            let left =  float4(corner (AA.x)      0.0f  0.0f  0.0f,
+                               corner (AA.x+one)  0.0f  0.0f  1.0f,
+                               corner (AA.y)      0.0f  1.0f  0.0f,
+                               corner (AA.y+one)  0.0f  1.0f  1.0f)
+            let right = float4(corner (AA.z)      1.0f  0.0f  0.0f,
+                               corner (AA.z+one)  1.0f  0.0f  1.0f,
+                               corner (AA.w)      1.0f  1.0f  0.0f,
+                               corner (AA.w+one)  1.0f  1.0f  1.0f)
+            // Think of the cube vertices as two quads, one at x=0 and one at x=1
+            // Reduce the cube to a single quad by interpolating in x
+            let topDown = lerp(left, right, f.x)
+            // The quad vertices form two line sections, one at y = 0 and one at y = 1
+            // Reduce the quad to a single line section by interpolating in y
+            let frontBack = lerp(topDown.xy, topDown.zw, f.y)
+            // Then reduce the line section to a point by interpolating in z
+            lerpf(frontBack.x, frontBack.y, f.z)
+
+        // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
+        member m.noise3D() =
+            let noise i j k = noise(float3(float32 i/256.0f, float32 j/256.0f, float32 k/256.0f))
+            Array3D.init 256 256 256 noise
+
+        member m.noise2D() =
+            let octave = 8.0f
+            //let noise i j = float32(PerlinReference.noise((float i)/octave, (float j)/octave, 0.0))
+            let noise i j = noise(float3(float32 i/octave, float32 j/octave, 0.0f))
+            Array2D.init 512 512 noise
 
         [<ShaderMethod>]
         member m.vertex(input:Diffuse.VSInput) =

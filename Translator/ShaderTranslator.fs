@@ -89,6 +89,27 @@ module InputElements =
 /// but is expensive to instantiate and this class will only be used for unit testing.
 type Texture =
     abstract member Sample : SamplerStateDescription*float2 -> float4
+    abstract member Sample : SamplerStateDescription*float32 -> float4
+
+type CpuTexture1D(texture:float4[]) =
+    let length = Array.length texture 
+    interface Texture with
+        member m.Sample(sampler:SamplerStateDescription, pos:float2) = 
+            failwith "2D index into 1D texture"
+            float4.zero
+        member m.Sample(sampler:SamplerStateDescription, pos:float32) = 
+            texture.[int(pos*float32(length)) % length]
+
+type CpuTexture2D(texture:float4[,]) =
+    let length1 = Array2D.length1 texture 
+    let length2 = Array2D.length2 texture 
+    interface Texture with
+        member m.Sample(sampler:SamplerStateDescription, pos:float2) = 
+            let sample x length = int(x*float32(length)) % length
+            texture.[sample pos.x length1, sample pos.y length2]
+        member m.Sample(sampler:SamplerStateDescription, pos:float32) = 
+            failwith "1D index into 2D texture"
+            float4.zero
 
 /// In order to write shader code in F# and execute the instructions on the GPU,
 /// we need an F# to HLSL translator. F# quotations allows us to easily obtain the
@@ -426,7 +447,7 @@ struct %s
             match shaderMethodInfo with
             | MethodWithReflectedDefinition(expr) -> 
                 shaderMethod shaderMethodInfo.Name expr
-            | _ -> failwith(sprintf "Unexpected public method %s. All public methods are expected to have the 'ShaderMethod' attribute." shaderMethodInfo.Name)
+            | _ -> "" // Ignore methods that are not marked with 'ShaderMethod' attribute
         
         let methodName(mi:MethodInfo) = mi.Name
         methods t
