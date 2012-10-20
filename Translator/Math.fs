@@ -24,6 +24,15 @@ module Math =
         val y : float32 
         new (x,y) = { x = x; y = y}
         static member zero = float2(0.0f,0.0f)
+        static member (+) (v1:float2, v2:float2) = 
+            float2(v1.x + v2.x, v1.y + v2.y)
+        static member (-) (v1:float2, v2:float2) = 
+            float2(v1.x - v2.x, v1.y - v2.y)
+        static member (*) (s:float32, v:float2) =
+            float2(s*v.x, s*v.y)
+        static member (*) (v:float2, s:float32) =
+            float2(s*v.x, s*v.y)
+        member m.lerp(dest:float2, t:float32) = m + (dest - m) * t
 
     [<Struct>]
     type float3 =
@@ -33,6 +42,8 @@ module Math =
         new (x,y,z) = { x = x; y = y; z = z }
         new(v:Vector3) ={ x = v.X; y = v.Y; z = v.Z}
 
+        static member (%) (v:float3, s:float32) = 
+            float3(v.x % s, v.y % s, v.z % s)
         static member (*) (s:float32, v:float3) =
             float3(s*v.x, s*v.y, s*v.z)
         static member (*) (v:float3, s:float32) = s*v
@@ -43,21 +54,30 @@ module Math =
             float3(v.x/length, v.y/length, v.z/length)
         static member (-) (v1:float3, v2:float3) = 
             float3(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z)
+        static member (-) (v:float3, s:float32) = 
+            float3(v.x - s, v.y - s, v.z - s)
         static member (+) (v1:float3, v2:float3) = 
             float3(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z)
+        static member (+) (v:float3, s:float32) = 
+            float3(v.x + s, v.y + s, v.z + s)
         static member (~-) (v:float3) = 
             float3(-v.x, -v.y, -v.z)
         static member saturate(v:float3) = float3(v.x.saturate(),
                                                   v.y.saturate(),
                                                   v.z.saturate())
+        static member floor(v:float3) = float3(floor v.x, floor v.y, floor v.z)
         member m.normalize() = float3.normalize m
+        member m.floor() = float3.floor m
         member m.saturate() = float3.saturate m
-        member m.lerp(dest:float3, t) = m*t + (1.0f-t)*dest
+        member m.Abs() = float3(abs m.x, abs m.y, abs m.z)
+        member m.lerp(dest:float3, t:float32) = m + (dest - m) * t
         static member zero = float3(0.0f,0.0f,0.0f)
        
     let dot(v1:float3) (v2:float3) = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
     let inline normalize< ^T when ^T :(member normalize : unit -> ^T)> (x:^T) =
         (^T : (member normalize : unit -> ^T) (x))
+    let inline floor< ^T when ^T :(member floor : unit -> ^T)> (x:^T) =
+        (^T : (member floor : unit -> ^T) (x))
 
     [<Struct>]
     type float4 =
@@ -67,6 +87,8 @@ module Math =
         val w : float32 
         new (x,y,z,w) = { x = x; y = y; z = z; w = w }
         new (f:float3, w) = { x = f.x; y = f.y; z = f.z; w = w }
+        member m.xy = float2(m.x,m.y)
+        member m.zw = float2(m.z,m.w)
         static member (*) (v1:float4, v2:float4) =
             float4(v1.x*v2.x, v1.y*v2.y, v1.z*v2.z, v1.w*v2.w)
         new(v:Vector4) ={ x = v.X; y = v.Y; z = v.Z; w = v.W }
@@ -76,12 +98,14 @@ module Math =
         static member (*) (v:float4, s:float32) = s*v
         static member (+) (v1:float4, v2:float4) = 
             float4(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z, v1.w + v2.w)
+        static member (-) (v1:float4, v2:float4) = 
+            float4(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z, v1.w - v2.w)
         member m.xyz = float3(m.x, m.y, m.z)
         member m.rgb = m.xyz
         member m.a = m.w
         static member zero = float4(0.0f,0.0f,0.0f,1.0f)
         member m.saturate() = float4.saturate m
-        member m.lerp(dest:float4, t) = m*t + (1.0f-t)*dest
+        member m.lerp(dest:float4, t:float32) = m + (dest - m) * t
         static member saturate(v:float4) = float4(v.x.saturate(),
                                                   v.y.saturate(),
                                                   v.z.saturate(),
@@ -92,9 +116,19 @@ module Math =
 
     let inline saturate< ^T when ^T :(member saturate : unit -> ^T)> (x:^T) =
         (^T : (member saturate : unit -> ^T) (x))
+    let inline noise< ^T when ^T :(member noise : unit -> float32)> (x:^T) =
+        (^T : (member noise : unit -> float32) (x))
     let inline lerp< ^T when ^T :(member lerp : ^T*float32 -> ^T)> (x:^T, d:^T,t:float32) =
         (^T : (member lerp : ^T*float32 -> ^T) (x,d,t))
     let saturatef(x:float32) = x.saturate()
+    let lerpf(x,y,t:float32) = x + (y - x) * t
+
+    [<Struct>]
+    type int3(_x:int,_y:int,_z:int) =
+        member m.x = _x
+        member m.y = _y
+        member m.z = _z
+        new(f:float3) = int3(int f.x, int f.y, int f.z)
 
     [<Struct; StructLayout(LayoutKind.Sequential)>]
     type float4x4 =

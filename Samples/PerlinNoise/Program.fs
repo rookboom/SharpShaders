@@ -5,10 +5,21 @@ open SharpDX.Windows
 open SharpDX
 open System.Windows.Forms
 open System.Diagnostics
+open System.Drawing
 
 let width, height = 640, 480
 let form = new Form(Visible = true, Text = "Perlin Noise", Width = width, Height = height)
+let saveNoiseSlice =
+    use bmp = new Bitmap(512, 512)
+    let setColor i j (c:float32) = 
+        let shade = int((c+1.0f)/2.0f*255.0f)
+        bmp.SetPixel(i, j, Color.FromArgb(255, shade, shade, shade))
+    Perlin.noise2D()
+    |> Array2D.iteri setColor
+    bmp.Save("noise2D.jpg", Imaging.ImageFormat.Png) |> ignore
+
 let run() = 
+
     let hlsl = ShaderTranslator.toHLSL typeof<Marble.Shader>
     let inputElements = 
         InputElements.map typeof<Vertex> typeof<Diffuse.VSInput>
@@ -22,7 +33,7 @@ let run() =
     let sceneConstants, matConstants, objectConstants = 
         let light = -Vector3.Normalize(eye)
         Diffuse.SceneConstants(float3(light)),
-        Diffuse.MaterialConstants(float3(1.0f,1.0f,0.0f)),
+        Marble.MaterialConstants(4, 1.0f, 1.0f, 1.0f),
         Diffuse.ObjectConstants(float4x4.identity,
                                 float4x4.identity)
 

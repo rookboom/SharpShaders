@@ -87,8 +87,8 @@ module InputElements =
 
 /// We need a dummy type that represents a texture. We could use a DirectX Texture2D object 
 /// but is expensive to instantiate and this class will only be used for unit testing.
-type Texture(color:float4) = 
-    member m.Sample(sampler:SamplerStateDescription, uv:float2) = color
+type Texture =
+    abstract member Sample : SamplerStateDescription*float2 -> float4
 
 /// In order to write shader code in F# and execute the instructions on the GPU,
 /// we need an F# to HLSL translator. F# quotations allows us to easily obtain the
@@ -236,10 +236,25 @@ struct %s
         | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
         // Apply 'expand' recursively on all sub-expressions
         | ExprShape.ShapeVar v -> Expr.Var v
+        // Replace field get expressions with Var since the only fields
+        // are local scene constants which are global in HLSL
+        // For example mat.DiffuseColor maps to the DiffuseColor constant
+        | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
+            Expr.Var(Var(pi.Name, pi.PropertyType))
         | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) ->
             let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
             let res = Expr.Applications(this, [ for a in args -> [a]])
             expand vars res
+        //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
+        //    let rec unrollLoop = function
+        //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
+        //    | VarSet(x,e) -> Expr.Let(x, e, unrollLoop e2)
+
+            
+
+
+
+
         | ExprShape.ShapeLambda(v, expr) -> 
             Expr.Lambda(v, expand vars expr)
         | ExprShape.ShapeCombination(o, exprs) ->
@@ -268,7 +283,7 @@ struct %s
             /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
             | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
             | objectType -> 
-                /// To translate anothing other than basic types to HLSL, we need to assign each constructor 
+                /// To translate anything other than basic types to HLSL, we need to assign each constructor 
                 /// parameter statement to the matching output field. For simplicity we assume that the constructor 
                 /// parameters are in the same order as the declared fields.
                 /// The results is a sequence of statements of the following form:
@@ -305,6 +320,7 @@ struct %s
                 [typeof<float3x3>;typeof<float4x4>]
                 |> List.exists (fun a -> a = t)            
             match expr with
+            | Sequential(e1,e2) -> (hlsl e1) + (hlsl e2)
             | Var(var) -> var.Name
             | Value(obj,t) -> (string obj)
             | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
@@ -335,7 +351,8 @@ struct %s
                 | name, _ -> methodCall name args
             | PropertyGet(Some(input), pi, _) ->
                 match input with
-                | FieldGet(_, fi) -> pi.Name
+                | PropertyGet(Some(input), pi, _) ->
+                    sprintf "%s.%s" (string input) pi.Name
                 | _ -> sprintf "%s.%s" (string input) pi.Name
             | NewObject(constructorInfo, exprList) ->
                 let t = constructorInfo.DeclaringType
@@ -363,14 +380,17 @@ struct %s
                     sprintf "%s\n%s" (assignment var e1)
                                      (methodBody e2)
             | FieldGet(Some(e),fi) -> fi.Name
-            | ForIntegerRangeLoop(i, Int32(first), Int32(last), dothis) ->
+(*            | ForIntegerRangeLoop(i, first, last, dothis) ->
+                let num = function
+                | Int32(n) -> string(n)
+                | Var(v) -> v.Name
                 let formatForLoop = sprintf @"
-    for (int %s=%d; %s <= %d; %s++)
+    for (int %s=%s; %s <= %s; %s++)
     {
         %s
     };"
                 let counter = i.Name
-                formatForLoop counter first counter last counter (hlsl dothis)
+                formatForLoop counter (num first) counter (num last) counter (hlsl dothis) *)
             | VarSet(x, expr) ->
                 sprintf "%s = %s;\n" x.Name (hlsl expr)
             | NewTuple(exprs) ->
