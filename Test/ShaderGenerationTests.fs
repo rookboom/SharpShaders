@@ -39,41 +39,60 @@ type TestShaderEndingWithLookup(mat:Simplistic.MaterialConstants) =
 //=======================================================================================
 type TestShaderWithMultipleIndirection(mat:Simplistic.MaterialConstants) =
     [<ReflectedDefinition>]
-    member m.pixel(input:Simplistic.PSInput) = 
+    member m.pixel(input:Simplistic.PSInput) =
         float4(input.PositionHS.xyz,1.0f)
+
+//=======================================================================================
+type TestShaderWithTextureFetch(gradients:Texture,
+                                pointSampler:SamplerStateDescription) =
+    [<ReflectedDefinition>]
+    member m.pixel(input:Simplistic.PSInput) =
+        let x = 0.0f
+        gradients.Sample(pointSampler, x)
+
 //=======================================================================================
 type TestShaderWithMatrixCast(obj:Shaders.BlinnPhong.ObjectConstants) =
     [<ReflectedDefinition>]
-    member m.ConvertWorld(input:Simplistic.PSInput) = 
+    let convertWorld(input:Simplistic.PSInput) = 
         input.PositionHS.xyz * float3x3(obj.World)
          
 //=======================================================================================
 module ShaderGenerationTests =
     let assertShader expected (t:Type) =
-        let shaderCode = ShaderTranslator.shaders t
+        let shaderCode = ShaderTranslator.shaderMethods t
 
         match shaderCode |> Seq.toList with
         | [s] ->
             Assert.EqualIgnoreWhitespace(expected, s)
         | _ -> failwith "Expected exactly 1 shader method for this dummy shader"         
 
-    [<ReflectedDefinition>]
-    let color x y z = float3(x,y,z)
     //=======================================================================================
     type TestShaderWithExternalMethod(mat:Simplistic.MaterialConstants) =
-        [<ReflectedDefinition>]
+        [<ShaderFunction>]
+        let color x y z = float3(x,y,z)
+
+        [<ShaderEntry>]
         member m.pixel(input:Simplistic.PSInput) =
-            let final = color 0.0f 0.5f 1.0f
-            float4(final,1.0f)
+            let final x = color x (0.5f+1.0f) 1.0f
+            float4(final 3.0f,1.0f)
+
     [<Fact>]
-    let ``External methods should be inlined``() =
-        let expectedPS = @"
-float4 pixel(PSInput input) : SV_TARGET
+    let ``External methods should be inserted before the shader``() =
+        let expectedHelper = @"
+float3 color(float x, float y, float z)
 {
-    float3 final = float3(0,0.5,1);
-    return float4(final, 1);
+    return float3(x,y,z);
 };"
-        assertShader expectedPS typeof<TestShaderWithExternalMethod>
+        let expectedPS =  @"float4 pixel(PSInput input) : SV_TARGET
+{
+    return float4(color(3,(0.5)+(1),1), 1);
+};"
+        let shaderCode = ShaderTranslator.shaderMethods typeof<TestShaderWithExternalMethod>
+        match shaderCode |> Seq.toList with
+        | [f1;f2] ->
+            Assert.EqualIgnoreWhitespace(expectedHelper, f1)
+            Assert.EqualIgnoreWhitespace(expectedPS, f2)
+        | _ -> failwith "Expected exactly 2 shader methods"
 
     [<Fact>]
     let ``Should use multiplication insteadofmul operator for scalar types``() =
@@ -126,6 +145,7 @@ cbuffer ObjectConstants
 float4 x = float4(1, 1, 1, 1);
 return x;", ShaderTranslator.methodBody expr)          
 
+    
     [<Fact>]
     let ``Should allow pixel shaders that end with FieldGet expression as only line``() =
         let expectedVS = @"
@@ -134,6 +154,15 @@ float4 pixel(PSInput input) : SV_TARGET
     return MaterialDiffuse;
 };"
         assertShader expectedVS typeof<TestShaderWithSingleLineLookup>
+    [<Fact>]
+    let ``A texture fetch should not be considered an external method call``() =
+        let expectedVS = @"
+float4 pixel(PSInput input) : SV_TARGET
+{
+    float x = 0;
+    return gradients.Sample(pointSampler, x);
+};"
+        assertShader expectedVS typeof<TestShaderWithTextureFetch>
 
     [<Fact>]
     let ``Should allow pixel shaders that end with FieldGet expression after other statements``() =
@@ -157,7 +186,7 @@ float4 pixel(PSInput input) : SV_TARGET
     [<Fact>]
     let ``Should allow matrix conversion``() =
         let expectedVS = @"
-float3 ConvertWorld(PSInput input)
+float3 convertWorld(PSInput input)
 {
    return mul((input).PositionHS.xyz, (float3x3)(World));
 };"
@@ -216,9 +245,9 @@ PSInput vertex(VSInput input)
 {
     return float4(1,0,1,1);
 };"
-        let shaderCode = ShaderTranslator.shaders typeof<Simplistic.Shader>
+        let shaderCode = ShaderTranslator.shaderMethods typeof<Simplistic.Shader>
         match shaderCode |> Seq.toList with
-        | [ps;vs] ->
+        | [vs;ps] ->
             Assert.EqualIgnoreWhitespace(expectedVS, vs)
             Assert.EqualIgnoreWhitespace(expectedPS, ps)
         | _ -> failwith "Expected exactly 2 shader methods"
@@ -292,38 +321,32 @@ struct PSInput
 Pad the last field or set the size using explicit packing.")
 
     [<Fact>]
-    let ``Standard for loops should be unrolled ``() =
-        let expr = <@ let mutable x = 1
-                      let mutable y = 2
-                      for i in 1..3 do
-                        x <- x*i 
-                        y <- x*y 
-                      y@>
-        let rec loop i x y =
-            if i <= 3 then
-                loop (i + 1) (x*i) (x*y)
-            else
-                y
-        let y = 
-            let x = 1
-            let y = 2
-            let x = x*1
-            let y = x*y
-            let x = x*2
-            let y = x*y
-            let x = x*3
-            let y = x*y
-            y
-
-        loop 1 1 2
+    let ``Vector subfields should be accessible ``() =
+        let expr = <@   let v = float3(1.0f,1.0f,1.0f)
+                        let x = v.x
+                        x @>
         let expected = @"
-            int x = 0;
-            int y = 0;
-            y = ((((1)*(1))*(2))*(3))*((((1)*(1))*(2))*(((1)*(1))*(2a)));
-            return y;"
+            float3 v = float3(1,1,1);
+            float x = v.x;
+            return x;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Higher order functions should be supported ``() =
+        let expr = <@   let foo (pos:int) f =
+                            let amplitude = 5
+                            let noise = f(pos)
+                            amplitude * noise
+                        let double x = 2*x
+                        foo 3 double
+                    @>
+        let expected = @"
+        int amplitude = 5;
+        int noise = (2)*(3);
+        return (amplitude)*(noise);"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
     
-    [<ShaderMethod>]
+    [<ShaderFunction>]
     let foo z =
         let mutable x = z*2
         x <- x + 2
@@ -362,6 +385,16 @@ Pad the last field or set the size using explicit packing.")
             int y = (5) + ((5)*(5));
             int z = (5) + ((5)+(5));
             return (y)+(z);"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Modulus operator should be supported``() =
+        let expr =  <@
+                let y = (5) % (2)
+                y  @>
+        let expected = @"
+            int y = (5) % (2);
+            return y;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]

@@ -14,6 +14,9 @@ open System.Diagnostics
 open System.Runtime.InteropServices
 open SharpShaders.Math
 
+type ShaderEntry = ReflectedDefinitionAttribute
+type ShaderFunction = ReflectedDefinitionAttribute
+
 //=================================================================================================
 module Semantics =
     let private inputSemantics = dict ["Position", "POSITION";
@@ -134,6 +137,7 @@ module ShaderTranslator =
                                     "Single", "float"
                                     "Int32", "int"]
     let private methodMapping = dict ["saturatef", "saturate"
+                                      "lerpf", "lerp"
                                       "Abs", "abs"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
@@ -228,14 +232,19 @@ struct %s
             formatInput t.Name (fieldMembers t)
 
     let private methods(t:Type) =
-        let metadataToken(mi:MethodInfo) = mi.MetadataToken
+        let ``first private then public in declaration order``(mi:MethodInfo) = 
+            let token = mi.MetadataToken
+            
+            if mi.IsPublic then token + 100 else token
         t.GetMethods(
+                BindingFlags.Static |||
                 BindingFlags.DeclaredOnly |||
                 BindingFlags.Instance |||
-                BindingFlags.Public)
+                BindingFlags.Public   |||
+                BindingFlags.NonPublic)
         // The order in which fields are returned are dependent on some internal .NET reflection cache
         // We sort by the metadata token to get the order in which the methods were declared
-        |> Seq.sortBy metadataToken
+        |> Seq.sortBy ``first private then public in declaration order``
         
 
     /// We need to find all the input parameters to all the methods in the shader class.
@@ -245,12 +254,38 @@ struct %s
         let parameters(mi:MethodInfo) = mi.GetParameters()
         let parameterType(pi:ParameterInfo) = pi.ParameterType
         methods shaderType
+        //Only create input structs for entry points.
+        |> Seq.filter (fun mi -> mi.Name = "pixel" || mi.Name = "vertex")
         |> Seq.collect parameters
         |> Seq.map parameterType
         |> Seq.map formatStruct
 
+    // Expand function will recursively extract all inner functions
     let rec private expand vars expr = 
       // First recursively process & replace variables
+      let(|HelperCall|_|) expr =
+        let rec find args expr =
+            match expr with
+            | Let(v, e1, e2) -> find (Map.add v e1 args) e2
+            | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, _) ->
+                match expr with
+                | Call(Some(m), meth, callArgs) ->
+                    let inlinedArgs =
+                        let inlinedArg = function
+                        | Var(v) when Map.containsKey v args -> args.[v]
+                        | e -> expand vars e
+
+                        callArgs
+                        |> List.map inlinedArg
+                    Some(Expr.Call(m,meth,inlinedArgs))
+                | _ -> None
+                //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+                //let res = Expr.Applications(this, [ for a in args -> [a]])
+                //expand vars res
+            | _ -> None
+        find Map.empty expr
+
+
       let expanded = 
         match expr with
         // If the variable has an assignment, then replace it with the expression
@@ -262,21 +297,20 @@ struct %s
         // For example mat.DiffuseColor maps to the DiffuseColor constant
         | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
             Expr.Var(Var(pi.Name, pi.PropertyType))
-        | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) ->
-            let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-            let res = Expr.Applications(this, [ for a in args -> [a]])
-            expand vars res
+        | HelperCall(e) -> e
+//        | Call(Some(m), DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
+            //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+            //let res = Expr.Applications(this, [ for a in args -> [a]])
+            //expand vars res
+            //expr
+            //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+            //let res = Expr.Applications(this, [ for a in args -> [a]])
+            //expand vars res
         //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
         //    let rec unrollLoop = function
         //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
         //    | VarSet(x,e) -> Expr.Let(x, e, unrollLoop e2)
-
-            
-
-
-
-
-        | ExprShape.ShapeLambda(v, expr) -> 
+        | ExprShape.ShapeLambda(v, expr) ->
             Expr.Lambda(v, expand vars expr)
         | ExprShape.ShapeCombination(o, exprs) ->
             ExprShape.RebuildShapeCombination(o, List.map (expand vars) exprs)
@@ -289,6 +323,10 @@ struct %s
       | Let(v, Lambda(input,expr), body) ->
         let assign = Expr.Lambda(input, expr)
         expand (Map.add v (expand vars assign) vars) body
+      // local definitions within lambdas has to be inlined, except for the outermost lambda
+      //| Lambda(input,Let(v, e1, e2)) ->
+      //  let vars = Map.add v e1 vars        
+      //  expand vars (Expr.Lambda(input, e2))
       | Call(None,opComposeRight,[Lambda(v1,m1); Lambda(v2,m2)]) ->
         let assign = expand vars m1
         Expr.Lambda(v1, expand (Map.add v2 (expand vars assign) vars) m2)
@@ -303,6 +341,7 @@ struct %s
             match constructorInfo.DeclaringType with
             /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
             | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
+            | t when t = typeof<float3> -> sprintf "return float3(%s);" (argStr exprList)
             | objectType -> 
                 /// To translate anything other than basic types to HLSL, we need to assign each constructor 
                 /// parameter statement to the matching output field. For simplicity we assume that the constructor 
@@ -344,6 +383,7 @@ struct %s
             | Sequential(e1,e2) -> (hlsl e1) + (hlsl e2)
             | Var(var) -> var.Name
             | Value(obj,t) -> (string obj)
+            | SpecificCall(<@ (%) @>) (_, _, [l;r])-> infix "%" l r
             | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
             | SpecificCall(<@ (-) @>) (_, _, [l;r])-> infix "-" l r
             | SpecificCall(<@ (/) @>) (_, _, [l;r])-> infix "/" l r
@@ -425,14 +465,30 @@ struct %s
         (* Since we do not support inner functions, we will inline all local function definitions
            by replacing all function definitions with their body, and then replacing the application *)
         methodBody(expand Map.empty expr)
+
     /// A tuple representing the generated HLSL for the shader method as the first value
     /// and the method name as the second.
-    let shaders(t:Type) =
+    let shaderMethods(t:Type) =
         /// Recursively evaluate expressions and translating to HLSL
-        let shaderMethod name = function
-            | Lambda(v, expr) -> 
+        let (|EntryPoint|_|) name expr = 
+            match name with
+            | "pixel" | "vertex" -> 
                 match expr with
-                | Lambda(param, expr) -> 
+                | Lambda(v, expr) -> Some(expr)
+                | _ -> failwith "Unexpected entry point for shader function"
+            | _ -> None
+        let (|HelperFunction|_|) = function
+            | Lambda(_, _) as expr-> 
+                let rec gather args expr =
+                    match expr with
+                    // Ignore the this parameter that is added by the compiler
+                    | Lambda(v, expr) when v.Name = "this" -> gather args expr
+                    | Lambda(v, expr) -> gather (v::args) expr
+                    | _ -> List.rev args, expr
+                Some(gather [] expr)
+            | _ -> None
+        let shaderMethod name = function
+            | EntryPoint name (Lambda(param, expr)) -> 
                 let methodAnnotation = if name = "pixel" then " : SV_TARGET" else ""
                 sprintf "%s %s(%s %s)%s{ %s };"   (expr.Type.Name |> mapType)
                                                 name
@@ -440,18 +496,34 @@ struct %s
                                                 param.Name
                                                 methodAnnotation
                                                 (methodBody expr)
-                | _ -> failwith "Expected a lambda"
-            | _ -> failwith "Unexpected entry point for shader function"
+            | HelperFunction(args,expr)-> 
+                let rec parameters str = function
+                | [] -> sprintf "%s" str
+                | x:Var::[] -> 
+                    let t = x.Type.Name |> mapType
+                    sprintf "%s%s %s" str t x.Name
+                | x::xs -> 
+                    let t = x.Type.Name |> mapType
+                    let str = sprintf "%s%s %s," str t x.Name 
+                    parameters str xs
+
+                sprintf "%s %s(%s){ %s };"   
+                                    (expr.Type.Name |> mapType)
+                                    name
+                                    (parameters "" args)
+                                    (methodBody expr)
+
 
         let shader shaderMethodInfo =
             match shaderMethodInfo with
             | MethodWithReflectedDefinition(expr) -> 
                 shaderMethod shaderMethodInfo.Name expr
-            | _ -> "" // Ignore methods that are not marked with 'ShaderMethod' attribute
+            | _ -> failwith "Expected method with reflected definition..."
         
         let methodName(mi:MethodInfo) = mi.Name
+        let isReflected(mi:MethodInfo) = not(mi.GetCustomAttribute(typeof<ShaderFunction>) = null)
         methods t
-        |> Seq.sortBy methodName
+        |> Seq.filter isReflected
         |> Seq.map shader
 
 
@@ -461,6 +533,6 @@ struct %s
               yield! inputStructs t
               yield! textures t
               yield! samplers t
-              yield! shaders t }
+              yield! shaderMethods t }
         |> String.concat "\n"
 

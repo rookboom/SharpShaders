@@ -57,7 +57,7 @@ module BlinnPhong =
                 mat:MaterialConstants, 
                 diffuseTexture:Texture, 
                 linearSampler:SamplerStateDescription) =
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.vertex(input:VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
@@ -65,7 +65,7 @@ module BlinnPhong =
                     input.Normal * float3x3(obj.World),
                     input.UV)    
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.pixel(input:PSInput) =
             let worldPos = input.PositionWS
             let normal = input.Normal

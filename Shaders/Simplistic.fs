@@ -4,8 +4,6 @@ open SharpDX
 open SharpShaders.Math
 open SharpShaders
 
-type ShaderMethod = ReflectedDefinitionAttribute
-
 module Simplistic =
     //===================================================
     [<Struct>]
@@ -30,10 +28,10 @@ module Simplistic =
 
     type Shader(obj:ObjectConstants, mat:MaterialConstants) =
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.vertex(input:VSInput) =
             PSInput(input.Position * obj.WorldViewProjection)
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.pixel(input:PSInput) =
             float4(1.0f, 0.0f, 1.0f,1.0f)

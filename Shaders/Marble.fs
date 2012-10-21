@@ -119,16 +119,17 @@ module Marble =
                 gradients:Texture,
                 pointSampler:SamplerStateDescription) =
 
-        let gradperm(x:float32, p) = 
-            // this is our gradient sampling function on CPU
-            let grad = gradients.Sample(pointSampler, x)
-            dot grad.xyz p
-        
-        let perm2d(pos:float2) = 
-            // This is our texture sampling function on CPU
-            permutation.Sample(pointSampler, pos)
+        [<ShaderFunction>]
+        let cornerNoise(random:float32) p x y z = 
+            let grad = gradients.Sample(pointSampler, random)
+            dot grad.xyz (p-float3(x,y,z))
 
-        let noise(pos:float3) =
+        [<ShaderFunction>]
+        let perlin(pos:float3) =
+        
+            let perm2d(pos:float2) = 
+                permutation.Sample(pointSampler, pos)
+
             let P = (floor pos) % 256.0f / 256.0f
             let p = pos - floor(pos)
             let one = 1.0f / 256.0f
@@ -136,15 +137,15 @@ module Marble =
 
             // Find the random noise values at the 8 corners of the surrounding unit cube
             let AA = perm2d(P.xy) + P.z
-            let corner t x y z = gradperm(t, p - float3(x,y,z))
-            let left =  float4(corner (AA.x)      0.0f  0.0f  0.0f,
-                               corner (AA.x+one)  0.0f  0.0f  1.0f,
-                               corner (AA.y)      0.0f  1.0f  0.0f,
-                               corner (AA.y+one)  0.0f  1.0f  1.0f)
-            let right = float4(corner (AA.z)      1.0f  0.0f  0.0f,
-                               corner (AA.z+one)  1.0f  0.0f  1.0f,
-                               corner (AA.w)      1.0f  1.0f  0.0f,
-                               corner (AA.w+one)  1.0f  1.0f  1.0f)
+            
+            let left =  float4(cornerNoise (AA.x)      p 0.0f 0.0f 0.0f,
+                               cornerNoise (AA.x+one)  p 0.0f 0.0f 1.0f,
+                               cornerNoise (AA.y)      p 0.0f 1.0f 0.0f,
+                               cornerNoise (AA.y+one)  p 0.0f 1.0f 1.0f)
+            let right = float4(cornerNoise (AA.z)      p 1.0f 0.0f 0.0f,
+                               cornerNoise (AA.z+one)  p 1.0f 0.0f 1.0f,
+                               cornerNoise (AA.w)      p 1.0f 1.0f 0.0f,
+                               cornerNoise (AA.w+one)  p 1.0f 1.0f 1.0f)
             // Think of the cube vertices as two quads, one at x=0 and one at x=1
             // Reduce the cube to a single quad by interpolating in x
             let topDown = lerp(left, right, f.x)
@@ -156,26 +157,27 @@ module Marble =
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
         member m.noise3D() =
-            let noise i j k = noise(float3(float32 i/256.0f, float32 j/256.0f, float32 k/256.0f))
+            let noise i j k = perlin(float3(float32 i/256.0f, float32 j/256.0f, float32 k/256.0f))
             Array3D.init 256 256 256 noise
 
         member m.noise2D() =
             let octave = 8.0f
             //let noise i j = float32(PerlinReference.noise((float i)/octave, (float j)/octave, 0.0))
-            let noise i j = noise(float3(float32 i/octave, float32 j/octave, 0.0f))
+            let noise i j = perlin(float3(float32 i/octave, float32 j/octave, 0.0f))
             Array2D.init 512 512 noise
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.vertex(input:Diffuse.VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
                     worldPos.xyz,
                     input.Normal * float3x3(obj.World))    
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.pixel(input:PSInput) =
-            let perlin(pos:float3) = pos.x
-            let absNoise = perlin >> abs
+            let d = perlin input.PositionWS
+            float4(d,d,d,1.0f)
+            (*let absNoise = perlin >> abs
             let fbmNoise (pos:float3) f =
                 let amplitude = mat.Amplitude
                 let n = f(pos)
@@ -194,5 +196,5 @@ module Marble =
             let grayMarble = float3(diffuse, diffuse, diffuse)
             let color = Diffuse.color scene.LightDirection grayMarble input.Normal
             float4(color, 1.0f)
-
+            *)
     

@@ -29,7 +29,7 @@ module Diffuse =
         member m.PositionHS = p
         member m.Normal = n
 
-    [<ShaderMethod>]
+    [<ShaderFunction>]
     let color lightDirection (materialDiffuse:float3) normal =  
         normal
         |> normalize  
@@ -41,12 +41,12 @@ module Diffuse =
                 obj:ObjectConstants,
                 mat:MaterialConstants) =
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.vertex(input:VSInput) =
             PSInput(input.Position * obj.WorldViewProjection,
                     input.Normal * float3x3(obj.World))    
 
-        [<ShaderMethod>]
+        [<ShaderEntry>]
         member m.pixel(input:PSInput) =
             let final = color scene.LightDirection mat.Diffuse input.Normal
             float4(final, 1.0f)
