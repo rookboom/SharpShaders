@@ -70,6 +70,13 @@
     <Compile Include="Geometry.fs" />
     <Compile Include="ModelImporter.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Translator\SharpShaders.fsproj">
+      <Name>SharpShaders</Name>
+      <Project>{a80d56d4-e3ac-4f98-ae26-93962f468e97}</Project>
+      <Private>True</Private>
+    </ProjectReference>
+  </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
   </PropertyGroup>

@@ -18,6 +18,11 @@ module Math =
     type System.Single with
         member m.saturate() = clamp 0.0f 1.0f m
 
+    type Color4 with
+        member m.ToBgra() =
+            let bgra = Color4(m.Blue,m.Green,m.Red,m.Alpha)
+            bgra.ToArgb()
+
     [<Struct>]
     type float2 =
         val x : float32 
@@ -117,6 +122,7 @@ module Math =
                                                   v.y.saturate(),
                                                   v.z.saturate(),
                                                   v.w.saturate())
+        static member toRgba(col:float4) = Color4(col.x,col.y,col.z,col.w)
         override m.ToString() =
             sprintf "(%3.3f, %3.3f, %3.3f, %3.3f)" m.x m.y m.z m.w 
 

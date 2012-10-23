@@ -94,9 +94,8 @@ module PerlinTexture =
             float4(float32 AA, float32 AB, float32 BA, float32 BB) / 255.0f;
         Array2D.init 256 256 perm2D
     let permutedGradients =
-        let permGrad n = gradients.[(perm n) % 16]
-        Array.init 256 permGrad
-    let sample x = int(x*256.0f) % 256
+        let permGrad x y = float4(gradients.[(perm x) % 16], 1.0f)
+        Array2D.init 256 1 permGrad
 
 module Marble =
     [<Struct; ConstantPacking>]
@@ -137,15 +136,15 @@ module Marble =
 
             // Find the random noise values at the 8 corners of the surrounding unit cube
             let AA = perm2d(P.xy) + P.z
-            
-            let left =  float4(cornerNoise (AA.x)      p 0.0f 0.0f 0.0f,
-                               cornerNoise (AA.x+one)  p 0.0f 0.0f 1.0f,
-                               cornerNoise (AA.y)      p 0.0f 1.0f 0.0f,
-                               cornerNoise (AA.y+one)  p 0.0f 1.0f 1.0f)
-            let right = float4(cornerNoise (AA.z)      p 1.0f 0.0f 0.0f,
-                               cornerNoise (AA.z+one)  p 1.0f 0.0f 1.0f,
-                               cornerNoise (AA.w)      p 1.0f 1.0f 0.0f,
-                               cornerNoise (AA.w+one)  p 1.0f 1.0f 1.0f)
+            let corner t x y z = cornerNoise t p x y z
+            let left =  float4(corner (AA.x)     0.0f 0.0f 0.0f,
+                               corner (AA.x+one) 0.0f 0.0f 1.0f,
+                               corner (AA.y)     0.0f 1.0f 0.0f,
+                               corner (AA.y+one) 0.0f 1.0f 1.0f)
+            let right = float4(corner (AA.z)     1.0f 0.0f 0.0f,
+                               corner (AA.z+one) 1.0f 0.0f 1.0f,
+                               corner (AA.w)     1.0f 1.0f 0.0f,
+                               corner (AA.w+one) 1.0f 1.0f 1.0f)
             // Think of the cube vertices as two quads, one at x=0 and one at x=1
             // Reduce the cube to a single quad by interpolating in x
             let topDown = lerp(left, right, f.x)
@@ -170,13 +169,14 @@ module Marble =
         member m.vertex(input:Diffuse.VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
-                    worldPos.xyz,
+                    input.Position.xyz,
                     input.Normal * float3x3(obj.World))    
 
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
-            let d = perlin input.PositionWS
-            float4(d,d,d,1.0f)
+            let d = perlin(input.PositionWS*64.0f)
+            let adjust f = (f+1.0f)/2.0f
+            float4(adjust d,adjust d,adjust d,1.0f) |> saturate
             (*let absNoise = perlin >> abs
             let fbmNoise (pos:float3) f =
                 let amplitude = mat.Amplitude

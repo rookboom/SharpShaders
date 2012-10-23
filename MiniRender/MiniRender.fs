@@ -11,6 +11,7 @@ open SharpDX.Windows
 //open SharpDXExt
 open System.Runtime.InteropServices
 open SharpShaders
+open SharpShaders.Math
 
 
 [<Struct; StructLayout(LayoutKind.Sequential)>]
@@ -183,11 +184,60 @@ type MiniRender(windowHandle, width, height) =
         let setTexture i filename =
             let textureView = TextureLoader.fromFile device filename
                               |> disposable
-            do deviceContext.PixelShader.SetShaderResource(0, textureView)
+            do deviceContext.PixelShader.SetShaderResource(i, textureView)
 
         textureFiles
         |> List.iteri setTexture
 
+    member m.createSampler(desc:SamplerStateDescription) =  
+        disposable(new SamplerState(device, desc))
+        
+    member m.createTexture2D data format =
+            let width, height = Array2D.length1 data, Array2D.length2 data
+            
+            let desc =  new Texture2DDescription( 
+                                    Width = width,
+                                    Height = height,
+                                    MipLevels = 1,
+                                    ArraySize = 1,
+                                    Format = format,
+                                    BindFlags   = BindFlags.ShaderResource,
+                                    SampleDescription = SampleDescription(Count = 1),
+                                    CpuAccessFlags = CpuAccessFlags.Write,
+                                    Usage       = ResourceUsage.Dynamic,
+                                    OptionFlags = ResourceOptionFlags.None)
+
+            let tex = new Texture2D(device, desc) |> disposable
+            let _, dataStream = deviceContext.MapSubresource(
+                                            tex, 
+                                            0,
+                                            MapMode.WriteDiscard, 
+                                            SharpDX.Direct3D11.MapFlags.None)
+            let write (f:float4) = 
+                if format = Format.R32G32B32A32_Float then
+                    dataStream.Write(f.x)
+                    dataStream.Write(f.y)
+                    dataStream.Write(f.z)
+                    dataStream.Write(f.w)
+                else
+                    let rgba = float4.toRgba f
+                    dataStream.Write(rgba.ToBgra())
+                
+            if dataStream.CanWrite then
+                for y in 0..height-1 do
+                    for x in 0..width-1 do
+                        write data.[x,y]
+                deviceContext.UnmapSubresource( tex, 0 ) 
+
+            new ShaderResourceView(device, tex)
+
+    member m.setTextures textures =
+        let setTexture i (view, sampler) =
+            do deviceContext.PixelShader.SetShaderResource(i, view)
+            do deviceContext.PixelShader.SetSampler(i, sampler)
+
+        textures
+        |> List.iteri setTexture
 
     /// Creates a view projection matrix that looks at the origin
     member m.createViewProjection eye =

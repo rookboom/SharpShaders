@@ -106,13 +106,14 @@ type CpuTexture1D(texture:float4[]) =
 type CpuTexture2D(texture:float4[,]) =
     let length1 = Array2D.length1 texture 
     let length2 = Array2D.length2 texture 
+    let sample(pos:float2) =
+        let sample x length = int(x*float32(length)) % length
+        texture.[sample pos.x length1, sample pos.y length2]
     interface Texture with
         member m.Sample(sampler:SamplerStateDescription, pos:float2) = 
-            let sample x length = int(x*float32(length)) % length
-            texture.[sample pos.x length1, sample pos.y length2]
+            sample pos
         member m.Sample(sampler:SamplerStateDescription, pos:float32) = 
-            failwith "1D index into 2D texture"
-            float4.zero
+            sample(float2(pos, 0.0f))
 
 /// In order to write shader code in F# and execute the instructions on the GPU,
 /// we need an F# to HLSL translator. F# quotations allows us to easily obtain the

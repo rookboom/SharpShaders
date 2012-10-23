@@ -19,9 +19,7 @@ let saveNoiseSlice =
                                      Diffuse.ObjectConstants(),
                                      Marble.MaterialConstants(),
                                      CpuTexture2D(PerlinTexture.permutation2D),
-                                     CpuTexture1D(
-                                        PerlinTexture.permutedGradients
-                                        |> Array.map (fun f -> float4(f, 1.0f))),
+                                     CpuTexture2D(PerlinTexture.permutedGradients),
                                      SamplerStateDescription())
 
 
@@ -39,8 +37,22 @@ let run() =
     System.Diagnostics.Debug.WriteLine(hlsl);
 
     use renderer = new MiniRender(form.Handle, width, height)
+    let pointSampler = 
+        let desc = SamplerStateDescription( Filter = Filter.MinMagMipPoint,
+                                            AddressU = TextureAddressMode.Wrap,
+                                            AddressV = TextureAddressMode.Wrap,
+                                            AddressW = TextureAddressMode.Clamp,
+                                            ComparisonFunction = Comparison.Always,
+                                            MaximumLod = System.Single.MaxValue)
+        renderer.createSampler desc
+    let textures =[ 
+        (renderer.createTexture2D PerlinTexture.permutation2D DXGI.Format.R8G8B8A8_UNorm, pointSampler);
+        (renderer.createTexture2D PerlinTexture.permutedGradients DXGI.Format.R32G32B32A32_Float, pointSampler)]
+
+    renderer.setTextures textures
     
-    let eye = Vector3(0.0f,0.0f,-6.0f)
+
+    let eye = Vector3(0.0f,0.0f,-5.0f)
     let sceneConstants, matConstants, objectConstants = 
         let light = -Vector3.Normalize(eye)
         Diffuse.SceneConstants(float3(light)),
@@ -52,7 +64,7 @@ let run() =
         renderer.createVertexShader hlsl inputElements objectConstants
     let updateOtherConstants =
         renderer.createPixelShader hlsl (sceneConstants, matConstants)
-    let draw = renderer.createScene(Geometry.cube 1.0f)
+    let draw = renderer.createScene(Geometry.cube 2.0f)
     let viewProjection = renderer.createViewProjection(eye)
     let sw = Stopwatch.StartNew()
 
