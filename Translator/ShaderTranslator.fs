@@ -29,7 +29,7 @@ module Semantics =
     let map fields =
         let gather (semantics,i) fieldName =
             match inputSemantics.TryGetValue(fieldName) with
-            | false, _ -> ""::semantics, i
+            | false, _ //-> ""::semantics, i
             | true, "TEXCOORD" -> (sprintf "TEXCOORD%d" i)::semantics, i+1
             | true, s -> s::semantics, i
         let semantics, i = fields |> List.fold gather ([],0)
@@ -139,7 +139,8 @@ module ShaderTranslator =
                                     "Int32", "int"]
     let private methodMapping = dict ["saturatef", "saturate"
                                       "lerpf", "lerp"
-                                      "Abs", "abs"]
+                                      "Abs", "abs"
+                                      "Sin", "sin"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
             d.[key]
@@ -383,7 +384,10 @@ struct %s
             match expr with
             | Sequential(e1,e2) -> (hlsl e1) + (hlsl e2)
             | Var(var) -> var.Name
-            | Value(obj,t) -> (string obj)
+            | Value(obj,t) -> 
+                match obj with
+                | :? float32 -> String.Format("{0:0.0#####}f", obj)
+                | _ -> (string obj)
             | SpecificCall(<@ (%) @>) (_, _, [l;r])-> infix "%" l r
             | SpecificCall(<@ (+) @>) (_, _, [l;r])-> infix "+" l r
             | SpecificCall(<@ (-) @>) (_, _, [l;r])-> infix "-" l r
@@ -414,8 +418,8 @@ struct %s
             | PropertyGet(Some(input), pi, _) ->
                 match input with
                 | PropertyGet(Some(input), pi, _) ->
-                    sprintf "%s.%s" (string input) pi.Name
-                | _ -> sprintf "%s.%s" (string input) pi.Name
+                    sprintf "(%s).%s" (hlsl input) pi.Name
+                | _ -> sprintf "(%s).%s" (hlsl input) pi.Name
             | NewObject(constructorInfo, exprList) ->
                 let t = constructorInfo.DeclaringType
                 if isMatrix t then
@@ -442,17 +446,18 @@ struct %s
                     sprintf "%s\n%s" (assignment var e1)
                                      (methodBody e2)
             | FieldGet(Some(e),fi) -> fi.Name
-(*            | ForIntegerRangeLoop(i, first, last, dothis) ->
+            | ForIntegerRangeLoop(i, first, last, dothis) ->
                 let num = function
                 | Int32(n) -> string(n)
                 | Var(v) -> v.Name
+                | _ -> failwith "Expected either an integer or variable in for loop range."
                 let formatForLoop = sprintf @"
     for (int %s=%s; %s <= %s; %s++)
     {
         %s
     };"
                 let counter = i.Name
-                formatForLoop counter (num first) counter (num last) counter (hlsl dothis) *)
+                formatForLoop counter (num first) counter (num last) counter (hlsl dothis)
             | VarSet(x, expr) ->
                 sprintf "%s = %s;\n" x.Name (hlsl expr)
             | NewTuple(exprs) ->

@@ -67,36 +67,37 @@ module BlinnPhong =
 
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
-            let worldPos = input.PositionWS
-            let normal = input.Normal
-                         |> normalize
-            let lightVec = worldPos - scene.Light
-            let lightDir = normalize lightVec
-            let diffuse = 
-                let lightFallOff = 
-                    let lightVecSquared = (lightVec |> dot lightVec)
-                    scene.LightRangeSquared/lightVecSquared
-                    |> saturatef
-                normal 
-                |> dot -lightDir
-                |> mul mat.Diffuse
-                |> mul lightFallOff
-                |> saturatef
-            let specular = scene.Eye - worldPos
-                           |> normalize
-                           |> subtractFrom lightDir
-                           |> normalize
-                           |> dot normal
-                           |> saturatef
-                           |> pow mat.Shine
-                           |> mul mat.Specular
-                           |> saturatef
-
-            let lightColor = float3(1.0f,1.0f,1.0f)
-            let intensity = scene.AmbientLight + (diffuse + specular)*lightColor
-                            |> saturate
-            
             let tex = diffuseTexture.Sample(linearSampler, input.UV)
+            let intensity =
+                let worldPos = input.PositionWS
+                let normal = input.Normal
+                             |> normalize
+                let lightVec = worldPos - scene.Light
+                let lightDir = normalize lightVec
+                let diffuse = 
+                    let lightFallOff = 
+                        let lightVecSquared = (lightVec |> dot lightVec)
+                        scene.LightRangeSquared/lightVecSquared
+                        |> saturatef
+                    normal 
+                    |> dot -lightDir
+                    |> mul mat.Diffuse
+                    |> mul lightFallOff
+                    |> saturatef
+                let specular = scene.Eye - worldPos
+                               |> normalize
+                               |> subtractFrom lightDir
+                               |> normalize
+                               |> dot normal
+                               |> saturatef
+                               |> pow mat.Shine
+                               |> mul mat.Specular
+                               |> saturatef
+
+                let lightColor = float3(1.0f,1.0f,1.0f)
+                scene.AmbientLight + (diffuse + specular)*lightColor
+                |> saturate
+
             let color = tex.rgb * intensity 
             float4(color, 1.0f)
 

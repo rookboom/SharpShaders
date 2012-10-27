@@ -213,7 +213,7 @@ type MiniRender(windowHandle, width, height) =
                                             0,
                                             MapMode.WriteDiscard, 
                                             SharpDX.Direct3D11.MapFlags.None)
-            let write (f:float4) = 
+(*            let write (f:float4) = 
                 if format = Format.R32G32B32A32_Float then
                     dataStream.Write(f.x)
                     dataStream.Write(f.y)
@@ -221,12 +221,13 @@ type MiniRender(windowHandle, width, height) =
                     dataStream.Write(f.w)
                 else
                     let rgba = float4.toRgba f
-                    dataStream.Write(rgba.ToBgra())
+                    dataStream.Write(rgba.ToBgra()) *)
                 
             if dataStream.CanWrite then
                 for y in 0..height-1 do
                     for x in 0..width-1 do
-                        write data.[x,y]
+                        let rgba = float4.toRgba data.[x,y]
+                        dataStream.Write(rgba.ToBgra())
                 deviceContext.UnmapSubresource( tex, 0 ) 
 
             new ShaderResourceView(device, tex)

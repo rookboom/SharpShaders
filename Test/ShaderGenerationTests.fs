@@ -57,6 +57,12 @@ type TestShaderWithMatrixCast(obj:Shaders.BlinnPhong.ObjectConstants) =
         input.PositionHS.xyz * float3x3(obj.World)
          
 //=======================================================================================
+type TestHigherOrderFunctions(obj:Shaders.BlinnPhong.ObjectConstants) =
+    [<ReflectedDefinition>]
+    let foo(x:int) (compute:int->int) = 
+        compute x
+         
+//=======================================================================================
 module ShaderGenerationTests =
     let assertShader expected (t:Type) =
         let shaderCode = ShaderTranslator.shaderMethods t
@@ -85,7 +91,7 @@ float3 color(float x, float y, float z)
 };"
         let expectedPS =  @"float4 pixel(PSInput input) : SV_TARGET
 {
-    return float4(color(3,(0.5)+(1),1), 1);
+    return float4(color(3.0f,(0.5f)+(1.0f),1.0f), 1.0f);
 };"
         let shaderCode = ShaderTranslator.shaderMethods typeof<TestShaderWithExternalMethod>
         match shaderCode |> Seq.toList with
@@ -99,7 +105,7 @@ float3 color(float x, float y, float z)
         let expr = <@ let x = 1.0f * float3(1.0f,1.0f, 1.0f)
                       x @>
         Assert.EqualIgnoreWhitespace(@"
-float3 x = (1) * (float3(1,1,1));
+float3 x = (1.0f) * (float3(1.0f,1.0f,1.0f));
 return x;", ShaderTranslator.methodBody expr)      
     
     [<Fact>]
@@ -107,12 +113,12 @@ return x;", ShaderTranslator.methodBody expr)
         let expectedObject = @"
 cbuffer ObjectConstants
 {
-    row_major matrix WorldViewProjection;
+    row_major matrix WorldViewProjection :TEXCOORD0;
 };"
         let expectedMaterial = @"
 cbuffer MaterialConstants
 {
-    float4 MaterialDiffuse;
+    float4 MaterialDiffuse:TEXCOORD0;
 };"
 
         let constantsCode = ShaderTranslator.constants typeof<Simplistic.Shader>
@@ -127,8 +133,8 @@ cbuffer MaterialConstants
         let expectedObject = @"
 cbuffer ObjectConstants
 {
-    row_major matrix WorldViewProjection;
-    row_major matrix World;
+    row_major matrix WorldViewProjection :TEXCOORD0;
+    row_major matrix World :TEXCOORD1;
 };"
 
         let constantsCode = ShaderTranslator.constants typeof<BlinnPhong.Shader>
@@ -142,7 +148,7 @@ cbuffer ObjectConstants
         let expr = <@ let x = float4(1.0f, 1.0f, 1.0f, 1.0f)
                       x @>
         Assert.EqualIgnoreWhitespace(@"
-float4 x = float4(1, 1, 1, 1);
+float4 x = float4(1.0f, 1.0f, 1.0f, 1.0f);
 return x;", ShaderTranslator.methodBody expr)          
 
     
@@ -159,7 +165,7 @@ float4 pixel(PSInput input) : SV_TARGET
         let expectedVS = @"
 float4 pixel(PSInput input) : SV_TARGET
 {
-    float x = 0;
+    float x = 0.0f;
     return gradients.Sample(pointSampler, x);
 };"
         assertShader expectedVS typeof<TestShaderWithTextureFetch>
@@ -169,7 +175,7 @@ float4 pixel(PSInput input) : SV_TARGET
         let expectedVS = @"
 float4 pixel(PSInput input) : SV_TARGET
 {
-    float x = 5;
+    float x = 5.0f;
     return MaterialDiffuse;
 };"
         assertShader expectedVS typeof<TestShaderEndingWithLookup>
@@ -179,7 +185,7 @@ float4 pixel(PSInput input) : SV_TARGET
         let expectedVS = @"
 float4 pixel(PSInput input) : SV_TARGET
 {
-    return float4((input).PositionHS.xyz,1);
+    return float4((input).PositionHS.xyz,1.0f);
 };"
         assertShader expectedVS typeof<TestShaderWithMultipleIndirection>
 
@@ -243,7 +249,7 @@ PSInput vertex(VSInput input)
 };"
         let expectedPS =  @"float4 pixel(PSInput input) : SV_TARGET
 {
-    return float4(1,0,1,1);
+    return float4(1.0f,0.0f,1.0f,1.0f);
 };"
         let shaderCode = ShaderTranslator.shaderMethods typeof<Simplistic.Shader>
         match shaderCode |> Seq.toList with
@@ -326,7 +332,7 @@ Pad the last field or set the size using explicit packing.")
                         let x = v.x
                         x @>
         let expected = @"
-            float3 v = float3(1,1,1);
+            float3 v = float3(1.0f,1.0f,1.0f);
             float x = v.x;
             return x;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
@@ -347,18 +353,31 @@ Pad the last field or set the size using explicit packing.")
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
     
     [<ShaderFunction>]
-    let foo z =
-        let mutable x = z*2
-        x <- x + 2
+    let foo(z:float3) =
+        let mutable x = z*2.0f
+        //x <- x + 2
         x  
     [<Fact>]
     let ``External methods should not be inlined. They are generated seperately and treated as function calls ``() =
 
-        let expr = <@ let d = foo 5 
+        let expr = <@ let d = foo(float3(1.0f,1.0f,1.0f)) 
                       d@>
         let expected = @"
             int d = foo(5);
             return d;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Can get property of expression ``() =
+
+        let expr = <@ 
+                      let dx = float3(1.0f,1.0f,1.0f)
+                      let v = (dx + dx).x
+                      v@>
+
+        let expected = @"
+            
+            return foo(x+(5));"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
@@ -390,8 +409,8 @@ Pad the last field or set the size using explicit packing.")
     [<Fact>]
     let ``Modulus operator should be supported``() =
         let expr =  <@
-                let y = (5) % (2)
-                y  @>
+                        let y = (5) % (2)
+                        y  @>
         let expected = @"
             int y = (5) % (2);
             return y;"

@@ -106,14 +106,15 @@ module Marble =
         member m.Lacunarity = lacunarity
 
     [<Struct>]
-    type PSInput(p:float4, wp:float3, n:float3) =
+    type PSInput(p:float4, wp:float3, op:float3, n:float3) =
         member m.PositionHS = p
         member m.PositionWS = wp
+        member m.PositionOS = op
         member m.Normal = n
 
-    type Shader(scene:Diffuse.SceneConstants,
-                obj:Diffuse.ObjectConstants,
-                mat:MaterialConstants,
+    type Shader(scene:BlinnPhong.SceneConstants,
+                obj:BlinnPhong.ObjectConstants,
+                mat:BlinnPhong.MaterialConstants,
                 permutation:Texture,
                 gradients:Texture,
                 pointSampler:SamplerStateDescription) =
@@ -124,19 +125,34 @@ module Marble =
             dot grad.xyz (p-float3(x,y,z))
 
         [<ShaderFunction>]
-        let perlin(pos:float3) =
-        
+        let gradperm (t:float32) p =
+            let grad = gradients.Sample(pointSampler, t)
+            dot grad.xyz p
+
+        [<ShaderFunction>]
+        let perlin (pos:float3) =
             let perm2d(pos:float2) = 
                 permutation.Sample(pointSampler, pos)
 
-            let P = (floor pos) % 256.0f / 256.0f
+            //let P = (floor(pos) % 256.0f) / 256.0f
+            let P = fmod(floor(pos), 256.0f) / 256.0f
             let p = pos - floor(pos)
             let one = 1.0f / 256.0f
             let f = p * p * p * (p * (p * 6.0f - 15.0f) + 10.0f)
 
             // Find the random noise values at the 8 corners of the surrounding unit cube
             let AA = perm2d(P.xy) + P.z
-            let corner t x y z = cornerNoise t p x y z
+            // AND ADD BLENDED RESULTS FROM 8 CORNERS OF CUBE
+            lerpf( lerpf( lerpf( gradperm AA.x p ,  
+                                 gradperm AA.z (p + float3(-1.0f,  0.0f, 0.0f) ), f.x),
+                           lerpf( gradperm AA.y (p + float3(0.0f, -1.0f, 0.0f) ),
+                                 gradperm AA.w (p + float3(-1.0f, -1.0f, 0.0f) ), f.x), f.y),
+                             
+                     lerpf( lerpf( gradperm (AA.x+one)  (p + float3( 0.0f,  0.0f, -1.0f) ),
+                                 gradperm (AA.z+one)    (p + float3(-1.0f,  0.0f, -1.0f) ), f.x),
+                           lerpf( gradperm (AA.y+one)   (p + float3( 0.0f, -1.0f, -1.0f) ),
+                                 gradperm (AA.w+one)    (p + float3(-1.0f, -1.0f, -1.0f) ), f.x), f.y), f.z); 
+            (*let corner t x y z = cornerNoise t p x y z
             let left =  float4(corner (AA.x)     0.0f 0.0f 0.0f,
                                corner (AA.x+one) 0.0f 0.0f 1.0f,
                                corner (AA.y)     0.0f 1.0f 0.0f,
@@ -152,7 +168,66 @@ module Marble =
             // Reduce the quad to a single line section by interpolating in y
             let frontBack = lerp(topDown.xy, topDown.zw, f.y)
             // Then reduce the line section to a point by interpolating in z
-            lerpf(frontBack.x, frontBack.y, f.z)
+            lerpf(frontBack.x, frontBack.y, f.z) *)
+
+        [<ShaderFunction>]
+        let color lightDirection (materialDiffuse:float3) normal = 
+            normal
+            |> normalize  
+            |> dot -lightDirection
+            |> (*) materialDiffuse
+            |> saturate
+            |> (+) (float3(0.3f,0.3f,0.3f))
+            |> saturate
+
+        [<ShaderFunction>]
+        let stripes x f =
+            let PI = 3.14159265f;
+            let t = 0.5f + 0.5f * sin(f * 2.0f*PI * x);
+            t * t - 0.5f;
+
+        [<ShaderFunction>]
+        let fbm(pos:float3) =
+            let Octaves = 10
+            let Lacunarity = 2.0f
+            let Gain = 0.5f
+            
+            let mutable value = 0.0f
+            let mutable freq = 1.0f
+            let mutable amp = 0.5f
+
+            for i in 1..Octaves do
+                value <- value + perlin(pos*freq)*amp
+                freq <- freq * Lacunarity
+                amp <- amp * Gain
+            value
+
+        [<ShaderFunction>]
+        let turbulance(pos:float3) =
+            let W = 640.0f // W = Image width in pixels
+            let mutable t = -0.5f
+            let mutable f = 1.0f
+            let absNoise = perlin >> abs
+            for i in 1..7 do
+                t <- t + absNoise(pos*f)/f
+                f <- f*2.0f
+            t
+
+
+
+            (*
+        [<ShaderFunction>]
+        let turbulance pos f =
+            let W = 640.0f // W = Image width in pixels
+            let rec loop f t =
+                if f < W/12.0f then
+                    perlin pos f
+                    |> (/) f
+                    |> abs 
+                    |> loop(f*2.0f)
+                else
+                    t
+            loop -0.5f f *)
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
         member m.noise3D() =
@@ -162,23 +237,64 @@ module Marble =
         member m.noise2D() =
             let octave = 8.0f
             //let noise i j = float32(PerlinReference.noise((float i)/octave, (float j)/octave, 0.0))
-            let noise i j = perlin(float3(float32 i/octave, float32 j/octave, 0.0f))
+            let noise i j = perlin (float3(float32 i/octave, float32 j/octave, 0.0f))
             Array2D.init 512 512 noise
 
         [<ShaderEntry>]
         member m.vertex(input:Diffuse.VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
+                    worldPos.xyz,
                     input.Position.xyz,
-                    input.Normal * float3x3(obj.World))    
+                    input.Normal * float3x3(obj.World ))   
 
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
-            let d = perlin(input.PositionWS*64.0f)
-            let adjust f = (f+1.0f)/2.0f
-            float4(adjust d,adjust d,adjust d,1.0f) |> saturate
-            (*let absNoise = perlin >> abs
-            let fbmNoise (pos:float3) f =
+            let lumpy(pos:float3) = 0.03f*perlin(pos*8.0f)
+            let marbled(pos:float3) = 0.01f*(stripes(pos.x + 2.0f*turbulance(pos)) 1.6f)
+            let crinkled(pos:float3) = -0.1f*turbulance(pos)
+            let localPos = input.PositionOS
+            let bump pos normal F =
+                let f0 = F(pos)
+                let epsilon = 0.0001f
+                let dx = float3(epsilon,0.0f,0.0f)
+                let dy = float3(0.0f,epsilon,0.0f)
+                let dz = float3(0.0f,0.0f,epsilon)
+                let fx = F(pos + dx)
+                let fy = F(pos + dy)
+                let fz = F(pos + dz)
+                let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
+                normal - dF|> normalize
+            let normal = bump localPos input.Normal marbled
+            let intensity =
+                let worldPos = input.PositionWS
+                let lightVec = worldPos - scene.Light
+                let lightDir = normalize lightVec
+                let diffuse = 
+                    let lightFallOff = 
+                        let lightVecSquared = (lightVec |> dot lightVec)
+                        scene.LightRangeSquared/lightVecSquared
+                        |> saturatef
+                    normal 
+                    |> dot -lightDir
+                    |> mul mat.Diffuse
+                    |> mul lightFallOff
+                    |> saturatef
+                let specular = scene.Eye - worldPos
+                               |> normalize
+                               |> subtractFrom lightDir
+                               |> normalize
+                               |> dot normal
+                               |> saturatef
+                               |> pow mat.Shine
+                               |> mul mat.Specular
+                               |> saturatef
+
+                scene.AmbientLight + diffuse + specular
+                |> saturate
+
+            float4(intensity, 1.0f)
+            (*let fbmNoise (pos:float3) f =
                 let amplitude = mat.Amplitude
                 let n = f(pos)
                 // First octave

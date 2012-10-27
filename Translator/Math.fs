@@ -74,11 +74,13 @@ module Math =
                                                   v.y.saturate(),
                                                   v.z.saturate())
         static member floor(v:float3) = float3(floor v.x, floor v.y, floor v.z)
+        static member fmod(v:float3, t:float32) = v % t
         member m.normalize() = float3.normalize m
         member m.floor() = float3.floor m
         member m.saturate() = float3.saturate m
         member m.Abs() = float3(abs m.x, abs m.y, abs m.z)
         member m.lerp(dest:float3, t:float32) = m + (dest - m) * t
+        member m.fmod(t:float32) = float3.fmod(m, t)
         static member zero = float3(0.0f,0.0f,0.0f)
        
     let dot(v1:float3) (v2:float3) = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
@@ -133,6 +135,8 @@ module Math =
         (^T : (member noise : unit -> float32) (x))
     let inline lerp< ^T when ^T :(member lerp : ^T*float32 -> ^T)> (x:^T, d:^T,t:float32) =
         (^T : (member lerp : ^T*float32 -> ^T) (x,d,t))
+    let inline fmod< ^T when ^T :(member fmod : float32 -> ^T)> (x:^T, t:float32) =
+        (^T : (member fmod : float32 -> ^T) (x,t))
     let saturatef(x:float32) = x.saturate()
     let lerpf(x,y,t:float32) = x + (y - x) * t
 

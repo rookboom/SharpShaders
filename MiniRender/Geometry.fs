@@ -91,8 +91,12 @@ module Geometry =
             let invert v = -vector3(v)
             mesh.Normals 
             |> Array.map invert
-        let uvs = mesh.GetTextureCoords(0)
-                  |> Array.map vector2
+        let uvs = 
+            if mesh.HasTextureCoords(0) then
+                mesh.GetTextureCoords(0)
+                |> Array.map vector2
+            else
+                Array.create normals.Length Vector2.Zero
         let vertex(face:Face) =
             let faceVertex(ui:uint32) =
                 let i = int(ui)
