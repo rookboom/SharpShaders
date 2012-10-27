@@ -244,7 +244,7 @@ struct PSInput
 PSInput vertex(VSInput input)
 {
     PSInput o;
-    o.PositionHS = mul(input.Position,WorldViewProjection);
+    o.PositionHS = mul((input).Position,WorldViewProjection);
     return o;
 };"
         let expectedPS =  @"float4 pixel(PSInput input) : SV_TARGET
@@ -333,7 +333,7 @@ Pad the last field or set the size using explicit packing.")
                         x @>
         let expected = @"
             float3 v = float3(1.0f,1.0f,1.0f);
-            float x = v.x;
+            float x = (v).x;
             return x;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
@@ -365,19 +365,6 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int d = foo(5);
             return d;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
-
-    [<Fact>]
-    let ``Can get property of expression ``() =
-
-        let expr = <@ 
-                      let dx = float3(1.0f,1.0f,1.0f)
-                      let v = (dx + dx).x
-                      v@>
-
-        let expected = @"
-            
-            return foo(x+(5));"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
