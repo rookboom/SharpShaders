@@ -29,17 +29,17 @@ module Diffuse =
         member m.PositionHS = p
         member m.Normal = n
 
-    [<ShaderFunction>]
-    let color lightDirection (materialDiffuse:float3) normal =  
-        normal
-        |> normalize  
-        |> dot -lightDirection
-        |> mul materialDiffuse
-        |> saturate
-
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants) =
+
+        [<ShaderFunction>]
+        let color lightDirection (materialDiffuse:float3) normal =  
+            normal
+            |> normalize  
+            |> dot -lightDirection
+            |> mul materialDiffuse
+            |> saturate
 
         [<ShaderEntry>]
         member m.vertex(input:VSInput) =

@@ -265,78 +265,86 @@ struct %s
     // Expand function will recursively extract all inner functions
     let rec private expand vars expr = 
       // First recursively process & replace variables
-      let(|HelperCall|_|) expr =
-        let rec find args expr =
-            match expr with
-            | Let(v, e1, e2) -> find (Map.add v e1 args) e2
-            | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, _) ->
+        let(|HelperCall|_|) expr =
+            let rec find args expr =
                 match expr with
-                | Call(Some(m), meth, callArgs) ->
-                    let inlinedArgs =
-                        let inlinedArg = function
-                        | Var(v) when Map.containsKey v args -> args.[v]
-                        | e -> expand vars e
+                | Let(v, e1, e2) -> find (Map.add v e1 args) e2
+                | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, _) ->
+                    match expr with
+                    | Call(Some(m), meth, callArgs) ->
+                        let inlinedArgs =
+                            let inlinedArg = function
+                            | Var(v) when Map.containsKey v args -> expand vars args.[v]
+                            | e -> expand vars e
 
-                        callArgs
-                        |> List.map inlinedArg
-                    Some(Expr.Call(m,meth,inlinedArgs))
+                            callArgs
+                            |> List.map inlinedArg
+                        Some(Expr.Call(m,meth,inlinedArgs))
+                    | _ -> None
+                    //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+                    //let res = Expr.Applications(this, [ for a in args -> [a]])
+                    //expand vars res
                 | _ -> None
+            find Map.empty expr
+        
+        let (|IndirectProperty|_|) = function
+            /// Handle multiple levels of indirection such as input.Position.xyz
+            /// F# creates temporary objects which are not needed in HLSL 
+            | Let(var, e1, e2) ->
+                match var.Name, e1, e2 with
+                | 
+                    "copyOfStruct", 
+                    PropertyGet(Some(x),pi, _),
+                    PropertyGet(_,pi2, _) ->
+                    Some(Expr.PropertyGet(e1, pi2, []))
+                | _ -> None
+            | _ -> None
+        let expanded = 
+            match expr with
+            // If the variable has an assignment, then replace it with the expression
+            | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
+            // Apply 'expand' recursively on all sub-expressions
+            | ExprShape.ShapeVar v -> Expr.Var v
+            // Replace field get expressions with Var since the only fields
+            // are local scene constants which are global in HLSL
+            // For example mat.DiffuseColor maps to the DiffuseColor constant
+            | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
+                Expr.Var(Var(pi.Name, pi.PropertyType))
+            | IndirectProperty(e) -> e
+            | HelperCall(e) -> e
+            //        | Call(Some(m), DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
                 //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
                 //let res = Expr.Applications(this, [ for a in args -> [a]])
                 //expand vars res
-            | _ -> None
-        find Map.empty expr
-
-
-      let expanded = 
-        match expr with
-        // If the variable has an assignment, then replace it with the expression
-        | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
-        // Apply 'expand' recursively on all sub-expressions
-        | ExprShape.ShapeVar v -> Expr.Var v
-        // Replace field get expressions with Var since the only fields
-        // are local scene constants which are global in HLSL
-        // For example mat.DiffuseColor maps to the DiffuseColor constant
-        | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
-            Expr.Var(Var(pi.Name, pi.PropertyType))
-        | HelperCall(e) -> e
-//        | Call(Some(m), DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
-            //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-            //let res = Expr.Applications(this, [ for a in args -> [a]])
-            //expand vars res
-            //expr
-            //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-            //let res = Expr.Applications(this, [ for a in args -> [a]])
-            //expand vars res
-        //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
-        //    let rec unrollLoop = function
-        //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
-        //    | VarSet(x,e) -> Expr.Let(x, e, unrollLoop e2)
-        | ExprShape.ShapeLambda(v, expr) ->
-            Expr.Lambda(v, expand vars expr)
-        | ExprShape.ShapeCombination(o, exprs) ->
-            ExprShape.RebuildShapeCombination(o, List.map (expand vars) exprs)
+                //expr
+                //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+                //let res = Expr.Applications(this, [ for a in args -> [a]])
+                //expand vars res
+            //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
+            //    let rec unrollLoop = function
+            //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
+            //    | VarSet(x,e) -> Expr.Let(x, e, unrollLoop e2)
+            | ExprShape.ShapeLambda(v, expr) ->
+                Expr.Lambda(v, expand vars expr)
+            | ExprShape.ShapeCombination(o, exprs) ->
+                ExprShape.RebuildShapeCombination(o, List.map (expand vars) exprs)
     
-      // After expanding, try reducing the expression - we can replace 'let'
-      // expressions and applications where the first argument is lambda
-      match expanded with
-      | Application(ExprShape.ShapeLambda(v, body), assign) ->
-        expand (Map.add v (expand vars assign) vars) body
-      | Let(v, Lambda(input,expr), body) ->
-        let assign = Expr.Lambda(input, expr)
-        expand (Map.add v (expand vars assign) vars) body
-      // local definitions within lambdas has to be inlined, except for the outermost lambda
-      //| Lambda(input,Let(v, e1, e2)) ->
-      //  let vars = Map.add v e1 vars        
-      //  expand vars (Expr.Lambda(input, e2))
-      | Call(None,opComposeRight,[Lambda(v1,m1); Lambda(v2,m2)]) ->
+        // After expanding, try reducing the expression - we can replace 'let'
+        // expressions and applications where the first argument is lambda
+        match expanded with
+        | Application(ExprShape.ShapeLambda(v, body), assign) ->
+            expand (Map.add v (expand vars assign) vars) body
+        | Let(v, Lambda(input,expr), body) ->
+            let assign = Expr.Lambda(input, expr)
+            expand (Map.add v (expand vars assign) vars) body
+        | Call(None,opComposeRight,[Lambda(v1,m1); Lambda(v2,m2)]) ->
         let assign = expand vars m1
         Expr.Lambda(v1, expand (Map.add v2 (expand vars assign) vars) m2)
-      | _ -> expanded
+        | _ -> expanded
 
     /// Convert an F# expression to HLSL
     let methodBody expr = 
-        let rec methodBody = function
+        let rec methodBody ret = function
         | NewObject(constructorInfo, exprList) ->
             /// When the shader consists of only a single new object expression, is assumed that this object type
             /// is the same as the shader output. 
@@ -368,10 +376,29 @@ struct %s
     return o;" 
                 format (mapType objectType.Name) assignments
         /// Multi-line statements has to start with a let binding
-        | Let(v,e1,e2) -> hlsl(Expr.Let(v,e1,e2))
-        | Sequential(e1,e2) -> (hlsl e1) + (methodBody e2)
+        | Let(var, e1, e2) ->
+            let assignment(outer:Var) (right:Expr) =
+                match right with 
+//                        | Let(inner,e1,e2) -> sprintf "%s\n%s" (assignment inner e1)
+//                                                                (assignment outer e2)
+                | Let(inner,e1,e2) -> 
+                    let format = sprintf @"%s %s;
+                    {
+                        %s
+                    }" 
+                    let ret = sprintf "%s =" outer.Name
+                    format (mapType outer.Type.Name) 
+                            outer.Name
+                            (methodBody ret right)
+                | _ -> sprintf "%s %s = %s;" (mapType(outer.Type.Name))
+                                                outer.Name 
+                                                (hlsl right)
+
+            sprintf "%s\n%s" (assignment var e1)
+                             (methodBody ret e2)
+        | Sequential(e1,e2) -> (hlsl e1) + (methodBody ret e2)
         /// This has to be a single line statement.
-        | body -> sprintf "return %s;" (hlsl body)
+        | body -> sprintf "%s %s;" ret (hlsl body)
 
         and hlsl expr =
             let infix op e1 e2 = sprintf "(%s) %s (%s)" (hlsl e1) op (hlsl e2)
@@ -416,35 +443,13 @@ struct %s
                 | "subtractFrom", [l;r] -> infix "-" l r
                 | name, _ -> methodCall name args
             | PropertyGet(Some(input), pi, _) ->
-                match input with
-                | PropertyGet(Some(input), pi, _) ->
-                    sprintf "(%s).%s" (hlsl input) pi.Name
-                | _ -> sprintf "(%s).%s" (hlsl input) pi.Name
+                sprintf "(%s).%s" (hlsl input) pi.Name
             | NewObject(constructorInfo, exprList) ->
                 let t = constructorInfo.DeclaringType
                 if isMatrix t then
                     sprintf "(%s)(%s)" t.Name (argStr exprList)
                 else
                     sprintf "%s(%s)" t.Name (argStr exprList)
-            | Let(var, e1, e2) ->
-                match var.Name, e1, e2 with
-                | /// Handle multiple levels of indirection such as input.Position.xyz
-                  /// F# creates temporary objects which are not needed in HLSL
-                  "copyOfStruct", 
-                  PropertyGet(Some(x),pi, _),
-                  PropertyGet(_,pi2, _) ->
-                    sprintf "(%s).%s.%s" (hlsl x) (pi.Name) (pi2.Name)
-                | _ ->
-                    let rec assignment(outer:Var) (right:Expr) =
-                        match right with 
-                        | Let(inner,e1,e2) -> sprintf "%s\n%s" (assignment inner e1)
-                                                                (assignment outer e2)
-                        | _ -> sprintf "%s %s = %s;" (mapType(outer.Type.Name))
-                                                        outer.Name 
-                                                        (hlsl right)
-
-                    sprintf "%s\n%s" (assignment var e1)
-                                     (methodBody e2)
             | FieldGet(Some(e),fi) -> fi.Name
             | ForIntegerRangeLoop(i, first, last, dothis) ->
                 let num = function
@@ -470,7 +475,7 @@ struct %s
             |> String.concat ","
         (* Since we do not support inner functions, we will inline all local function definitions
            by replacing all function definitions with their body, and then replacing the application *)
-        methodBody(expand Map.empty expr)
+        methodBody "return" (expand Map.empty expr)
 
     /// A tuple representing the generated HLSL for the shader method as the first value
     /// and the method name as the second.
@@ -487,7 +492,7 @@ struct %s
             | Lambda(_, _) as expr-> 
                 let rec gather args expr =
                     match expr with
-                    // Ignore the this parameter that is added by the compiler
+                    // Ignore the 'this' parameter that is added by the compiler
                     | Lambda(v, expr) when v.Name = "this" -> gather args expr
                     | Lambda(v, expr) -> gather (v::args) expr
                     | _ -> List.rev args, expr

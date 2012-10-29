@@ -213,8 +213,19 @@ module Marble =
                 f <- f*2.0f
             t
 
-
-
+        [<ShaderFunction>]
+        let bump F pos normal =
+            let f0 = F(pos)
+            let epsilon = 0.0001f
+            let dx = float3(epsilon,0.0f,0.0f)
+            let dy = float3(0.0f,epsilon,0.0f)
+            let dz = float3(0.0f,0.0f,epsilon)
+            let fx = F(pos + dx)
+            let fy = F(pos + dy)
+            let fz = F(pos + dz)
+            let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
+            normal - dF|> normalize
+            
             (*
         [<ShaderFunction>]
         let turbulance pos f =
@@ -254,18 +265,8 @@ module Marble =
             let marbled(pos:float3) = 0.01f*(stripes(pos.x + 2.0f*turbulance(pos)) 1.6f)
             let crinkled(pos:float3) = -0.1f*turbulance(pos)
             let localPos = input.PositionOS
-            let bump pos normal F =
-                let f0 = F(pos)
-                let epsilon = 0.0001f
-                let dx = float3(epsilon,0.0f,0.0f)
-                let dy = float3(0.0f,epsilon,0.0f)
-                let dz = float3(0.0f,0.0f,epsilon)
-                let fx = F(pos + dx)
-                let fy = F(pos + dy)
-                let fz = F(pos + dz)
-                let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
-                normal - dF|> normalize
-            let normal = bump localPos input.Normal marbled
+
+            let normal = bump marbled localPos input.Normal 
             let intensity =
                 let worldPos = input.PositionWS
                 let lightVec = worldPos - scene.Light

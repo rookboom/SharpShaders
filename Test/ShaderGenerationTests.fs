@@ -185,7 +185,7 @@ float4 pixel(PSInput input) : SV_TARGET
         let expectedVS = @"
 float4 pixel(PSInput input) : SV_TARGET
 {
-    return float4((input).PositionHS.xyz,1.0f);
+    return float4(((input).PositionHS).xyz,1.0f);
 };"
         assertShader expectedVS typeof<TestShaderWithMultipleIndirection>
 
@@ -194,7 +194,7 @@ float4 pixel(PSInput input) : SV_TARGET
         let expectedVS = @"
 float3 convertWorld(PSInput input)
 {
-   return mul((input).PositionHS.xyz, (float3x3)(World));
+   return mul(((input).PositionHS).xyz, (float3x3)(World));
 };"
         assertShader expectedVS typeof<TestShaderWithMatrixCast>
 
@@ -391,6 +391,25 @@ Pad the last field or set the size using explicit packing.")
             int y = (5) + ((5)*(5));
             int z = (5) + ((5)+(5));
             return (y)+(z);"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``External higher order functions should be inlined in its own scope ``() =
+        let expr = 
+            <@  
+                let bar(F:float32->float32) (z:float32) =
+                    let x = F(z*2.0f)
+                    x  
+                let square x = x*x
+                let y = bar square 5.0f
+                y  @>
+        let expected = @"
+            float y;
+            {
+                float  x = ((5.0f)*(2.0f))*((5.0f)*(2.0f));
+                y = x;
+            }
+            return y;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
