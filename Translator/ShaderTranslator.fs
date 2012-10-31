@@ -262,6 +262,23 @@ struct %s
         |> Seq.map parameterType
         |> Seq.map formatStruct
 
+    // Renames variables so that inner scope variables will always have a different name than the outer scope
+    let rec private renameVars depth vars expr = 
+        match expr with
+        | Let(v, e1,e2) -> 
+            let name =
+                sprintf "%s%s" (String.init depth (fun i -> "_") ) v.Name
+
+            let v2 = Var(name, v.Type)
+            let newVars = (Map.add v v2 vars)
+            Expr.Let(v2, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
+            //Expr.Let(v, e1, e2)
+        | ExprShape.ShapeVar v when Map.containsKey v vars -> Expr.Var(vars.[v])
+        | ExprShape.ShapeVar v -> Expr.Var v
+        | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v,renameVars depth vars expr)
+        | ExprShape.ShapeCombination(o, exprs) ->
+            ExprShape.RebuildShapeCombination(o, List.map (renameVars depth vars) exprs)
+
     // Expand function will recursively extract all inner functions
     let rec private expand vars expr = 
       // First recursively process & replace variables
@@ -270,20 +287,22 @@ struct %s
                 match expr with
                 | Let(v, e1, e2) -> find (Map.add v e1 args) e2
                 | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, _) ->
+                    // Since the helper method has not been added to the list
+                    // of known expressions, insert it before the call is made.
                     match expr with
-                    | Call(Some(m), meth, callArgs) ->
-                        let inlinedArgs =
+                    | Call(Some(m), mi, callArgs) ->
+                        let e:Expr = expand vars meth
+                        let v = Var(mi.Name, e.Type)
+                        Some(Expr.Let(v, e, expr))
+                        (*let inlinedArgs =
                             let inlinedArg = function
                             | Var(v) when Map.containsKey v args -> expand vars args.[v]
                             | e -> expand vars e
 
                             callArgs
                             |> List.map inlinedArg
-                        Some(Expr.Call(m,meth,inlinedArgs))
+                        Some(Expr.Call(m,meth,inlinedArgs)) *)
                     | _ -> None
-                    //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-                    //let res = Expr.Applications(this, [ for a in args -> [a]])
-                    //expand vars res
                 | _ -> None
             find Map.empty expr
         
@@ -311,15 +330,11 @@ struct %s
             | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
                 Expr.Var(Var(pi.Name, pi.PropertyType))
             | IndirectProperty(e) -> e
-            | HelperCall(e) -> e
-            //        | Call(Some(m), DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
-                //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-                //let res = Expr.Applications(this, [ for a in args -> [a]])
-                //expand vars res
-                //expr
-                //let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
-                //let res = Expr.Applications(this, [ for a in args -> [a]])
-                //expand vars res
+            //| HelperCall(e) -> e
+            | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
+                let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+                let res = Expr.Applications(this, [ for a in args -> [a]])
+                renameVars 0 Map.empty (expand vars res)
             //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
             //    let rec unrollLoop = function
             //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
@@ -337,6 +352,8 @@ struct %s
         | Let(v, Lambda(input,expr), body) ->
             let assign = Expr.Lambda(input, expr)
             expand (Map.add v (expand vars assign) vars) body
+//        | Let(v, assign, body) ->
+//            expand (Map.add v (expand vars assign) vars) body
         | Call(None,opComposeRight,[Lambda(v1,m1); Lambda(v2,m2)]) ->
         let assign = expand vars m1
         Expr.Lambda(v1, expand (Map.add v2 (expand vars assign) vars) m2)
@@ -350,8 +367,8 @@ struct %s
             /// is the same as the shader output. 
             match constructorInfo.DeclaringType with
             /// For basic types we assume that this is the shader output. This is the case for pixel shaders.
-            | t when t = typeof<float4> -> sprintf "return float4(%s);" (argStr exprList)
-            | t when t = typeof<float3> -> sprintf "return float3(%s);" (argStr exprList)
+            | t when t = typeof<float4> -> sprintf "%s float4(%s);" ret (argStr exprList)
+            | t when t = typeof<float3> -> sprintf "%s float3(%s);" ret (argStr exprList)
             | objectType -> 
                 /// To translate anything other than basic types to HLSL, we need to assign each constructor 
                 /// parameter statement to the matching output field. For simplicity we assume that the constructor 
@@ -373,8 +390,8 @@ struct %s
                 let format = sprintf @"
     %s o;
     %s
-    return o;" 
-                format (mapType objectType.Name) assignments
+    %s o;" 
+                format (mapType objectType.Name) assignments ret
         /// Multi-line statements has to start with a let binding
         | Let(var, e1, e2) ->
             let assignment(outer:Var) (right:Expr) =
@@ -409,7 +426,7 @@ struct %s
                 [typeof<float3x3>;typeof<float4x4>]
                 |> List.exists (fun a -> a = t)            
             match expr with
-            | Sequential(e1,e2) -> (hlsl e1) + (hlsl e2)
+            | Sequential(e1,e2) -> (methodBody "" e1) + (methodBody "" e2)
             | Var(var) -> var.Name
             | Value(obj,t) -> 
                 match obj with
@@ -462,9 +479,9 @@ struct %s
         %s
     };"
                 let counter = i.Name
-                formatForLoop counter (num first) counter (num last) counter (hlsl dothis)
+                formatForLoop counter (num first) counter (num last) counter (methodBody "" dothis)
             | VarSet(x, expr) ->
-                sprintf "%s = %s;\n" x.Name (hlsl expr)
+                sprintf "%s = %s;\n" x.Name (methodBody "" expr)
             | NewTuple(exprs) ->
                 argStr exprs
             | TupleGet(x, i) -> hlsl x
@@ -475,6 +492,7 @@ struct %s
             |> String.concat ","
         (* Since we do not support inner functions, we will inline all local function definitions
            by replacing all function definitions with their body, and then replacing the application *)
+        let expr = renameVars 0 Map.empty expr
         methodBody "return" (expand Map.empty expr)
 
     /// A tuple representing the generated HLSL for the shader method as the first value
@@ -532,9 +550,10 @@ struct %s
             | _ -> failwith "Expected method with reflected definition..."
         
         let methodName(mi:MethodInfo) = mi.Name
-        let isReflected(mi:MethodInfo) = not(mi.GetCustomAttribute(typeof<ShaderFunction>) = null)
+        //let isReflected(mi:MethodInfo) = not(mi.GetCustomAttribute(typeof<ShaderFunction>) = null)
+        let isEntry(mi:MethodInfo) = mi.Name = "pixel" || mi.Name = "vertex"
         methods t
-        |> Seq.filter isReflected
+        |> Seq.filter isEntry
         |> Seq.map shader
 
 

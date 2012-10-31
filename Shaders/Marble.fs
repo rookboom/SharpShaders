@@ -141,17 +141,21 @@ module Marble =
             let f = p * p * p * (p * (p * 6.0f - 15.0f) + 10.0f)
 
             // Find the random noise values at the 8 corners of the surrounding unit cube
+
             let AA = perm2d(P.xy) + P.z
             // AND ADD BLENDED RESULTS FROM 8 CORNERS OF CUBE
-            lerpf( lerpf( lerpf( gradperm AA.x p ,  
-                                 gradperm AA.z (p + float3(-1.0f,  0.0f, 0.0f) ), f.x),
-                           lerpf( gradperm AA.y (p + float3(0.0f, -1.0f, 0.0f) ),
-                                 gradperm AA.w (p + float3(-1.0f, -1.0f, 0.0f) ), f.x), f.y),
-                             
-                     lerpf( lerpf( gradperm (AA.x+one)  (p + float3( 0.0f,  0.0f, -1.0f) ),
-                                 gradperm (AA.z+one)    (p + float3(-1.0f,  0.0f, -1.0f) ), f.x),
-                           lerpf( gradperm (AA.y+one)   (p + float3( 0.0f, -1.0f, -1.0f) ),
-                                 gradperm (AA.w+one)    (p + float3(-1.0f, -1.0f, -1.0f) ), f.x), f.y), f.z); 
+            let A = gradperm AA.x p
+            let B = gradperm AA.z (p + float3(-1.0f,  0.0f, 0.0f) )
+            let C = gradperm AA.y (p + float3(0.0f, -1.0f, 0.0f) )
+            let D = gradperm AA.w (p + float3(-1.0f, -1.0f, 0.0f) )
+            let E = gradperm (AA.x+one)  (p + float3( 0.0f,  0.0f, -1.0f) )
+            let F = gradperm (AA.z+one)    (p + float3(-1.0f,  0.0f, -1.0f) )
+            let G = gradperm (AA.y+one)   (p + float3( 0.0f, -1.0f, -1.0f) )
+            let H = gradperm (AA.w+one)    (p + float3(-1.0f, -1.0f, -1.0f) )
+            lerpf(lerpf(lerpf(A, B, f.x),
+                        lerpf(C, D, f.x), f.y),
+                  lerpf(lerpf(E ,F, f.x),
+                        lerpf(G, H, f.x), f.y), f.z); 
             (*let corner t x y z = cornerNoise t p x y z
             let left =  float4(corner (AA.x)     0.0f 0.0f 0.0f,
                                corner (AA.x+one) 0.0f 0.0f 1.0f,
@@ -207,9 +211,11 @@ module Marble =
             let W = 640.0f // W = Image width in pixels
             let mutable t = -0.5f
             let mutable f = 1.0f
-            let absNoise = perlin >> abs
+            //let absNoise = perlin >> abs
             for i in 1..7 do
-                t <- t + absNoise(pos*f)/f
+                //let n = absNoise(pos*f)
+                let n = perlin(pos*f)
+                t <- t + n/f
                 f <- f*2.0f
             t
 
@@ -261,13 +267,20 @@ module Marble =
 
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
-            let lumpy(pos:float3) = 0.03f*perlin(pos*8.0f)
-            let marbled(pos:float3) = 0.01f*(stripes(pos.x + 2.0f*turbulance(pos)) 1.6f)
-            let crinkled(pos:float3) = -0.1f*turbulance(pos)
+            let lumpy(pos:float3) = 
+                let p = perlin(pos*8.0f)
+                0.03f*p
+            let marbled(pos:float3) = 
+                let turb = turbulance(pos)
+                let s = stripes(pos.x + 2.0f*turb) 1.6f
+                0.01f*(s)
+            let crinkled(pos:float3) = 
+                let t=turbulance(pos)
+                -0.1f*t
             let localPos = input.PositionOS
 
-            let normal = bump marbled localPos input.Normal 
-            let intensity =
+            let norm = bump crinkled localPos input.Normal 
+            let intensity = //float3(1.0f,1.0f,1.0f)
                 let worldPos = input.PositionWS
                 let lightVec = worldPos - scene.Light
                 let lightDir = normalize lightVec
@@ -276,7 +289,7 @@ module Marble =
                         let lightVecSquared = (lightVec |> dot lightVec)
                         scene.LightRangeSquared/lightVecSquared
                         |> saturatef
-                    normal 
+                    norm
                     |> dot -lightDir
                     |> mul mat.Diffuse
                     |> mul lightFallOff
@@ -285,7 +298,7 @@ module Marble =
                                |> normalize
                                |> subtractFrom lightDir
                                |> normalize
-                               |> dot normal
+                               |> dot norm
                                |> saturatef
                                |> pow mat.Shine
                                |> mul mat.Specular

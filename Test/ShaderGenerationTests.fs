@@ -53,7 +53,7 @@ type TestShaderWithTextureFetch(gradients:Texture,
 //=======================================================================================
 type TestShaderWithMatrixCast(obj:Shaders.BlinnPhong.ObjectConstants) =
     [<ReflectedDefinition>]
-    let convertWorld(input:Simplistic.PSInput) = 
+    member m.pixel(input:Simplistic.PSInput) = 
         input.PositionHS.xyz * float3x3(obj.World)
          
 //=======================================================================================
@@ -80,9 +80,28 @@ module ShaderGenerationTests =
         [<ShaderEntry>]
         member m.pixel(input:Simplistic.PSInput) =
             let final x = color x (0.5f+1.0f) 1.0f
-            float4(final 3.0f,1.0f)
+            let pos = final 3.0f
+            float4(pos,1.0f)
 
     [<Fact>]
+    let ``External methods should be inlined``() =
+        let expectedPS =  @"float4 pixel(PSInput input) : SV_TARGET
+{
+    float3 pos;
+    {
+        float _y=(0.5f)+(1.0f);
+        float _z = 1.0f;
+        pos = float3(3.0f, _y, _z);
+    }
+    return float4(pos, 1.0f);
+};"
+        let shaderCode = ShaderTranslator.shaderMethods typeof<TestShaderWithExternalMethod>
+        match shaderCode |> Seq.toList with
+        | [f1] ->
+            Assert.EqualIgnoreWhitespace(expectedPS, f1)
+        | _ -> failwith "Expected exactly 1 shader method"
+
+(*    [<Fact>]
     let ``External methods should be inserted before the shader``() =
         let expectedHelper = @"
 float3 color(float x, float y, float z)
@@ -98,7 +117,7 @@ float3 color(float x, float y, float z)
         | [f1;f2] ->
             Assert.EqualIgnoreWhitespace(expectedHelper, f1)
             Assert.EqualIgnoreWhitespace(expectedPS, f2)
-        | _ -> failwith "Expected exactly 2 shader methods"
+        | _ -> failwith "Expected exactly 2 shader methods" *)
 
     [<Fact>]
     let ``Should use multiplication insteadofmul operator for scalar types``() =
@@ -192,7 +211,7 @@ float4 pixel(PSInput input) : SV_TARGET
     [<Fact>]
     let ``Should allow matrix conversion``() =
         let expectedVS = @"
-float3 convertWorld(PSInput input)
+float3 pixel(PSInput input): SV_TARGET
 {
    return mul(((input).PositionHS).xyz, (float3x3)(World));
 };"
@@ -347,9 +366,9 @@ Pad the last field or set the size using explicit packing.")
                         foo 3 double
                     @>
         let expected = @"
-        int amplitude = 5;
-        int noise = (2)*(3);
-        return (amplitude)*(noise);"
+        int _amplitude = 5;
+        int _noise = (2)*(3);
+        return (_amplitude)*(_noise);"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
     
     [<ShaderFunction>]
@@ -365,6 +384,24 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int d = foo(5);
             return d;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Method calls should modify variable names inside scope to prevent clashes``() =
+
+        let expr = <@ 
+                      let perlin(x:float32) =
+                          let P = abs(x)
+                          P
+                      let x = perlin(1.0f)
+                      6.0f*x@>
+        let expected = @"
+            float x;
+            {
+                float _P = abs(1.0f);
+                x=_P;
+            }
+            return (6.0f)*(x);"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
@@ -384,13 +421,13 @@ Pad the last field or set the size using explicit packing.")
             <@  let square x = x*x
                 let double x = x+x
                 let add x f = x + f(x)
-                let y = add 5 square
-                let z = add 5 double
-                y+z  @>
+                let y = abs(add 5 square)
+                let z = add 4 double
+                y+z*y  @>
         let expected = @"
-            int y = (5) + ((5)*(5));
-            int z = (5) + ((5)+(5));
-            return (y)+(z);"
+            int y = abs((5) + ((5)*(5)));
+            int z = (4) + ((4)+(4));
+            return (y)+((z)*(y));"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
@@ -406,8 +443,8 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             float y;
             {
-                float  x = ((5.0f)*(2.0f))*((5.0f)*(2.0f));
-                y = x;
+                float  _x = ((5.0f)*(2.0f))*((5.0f)*(2.0f));
+                y = _x;
             }
             return y;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
