@@ -263,49 +263,152 @@ struct %s
         |> Seq.map formatStruct
 
     // Renames variables so that inner scope variables will always have a different name than the outer scope
-    let rec private renameVars depth vars expr = 
+    let rec private renameVars depth vars  = function
+    | Let(v, e1,e2) -> 
+        let name =
+            sprintf "%s%s" (String.init depth (fun i -> "_") ) v.Name
+
+        let v2 = Var(name, v.Type)
+        let newVars = (Map.add v v2 vars)
+        Expr.Let(v2, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
+        //Expr.Let(v, e1, e2)
+    | ExprShape.ShapeVar v when Map.containsKey v vars -> Expr.Var(vars.[v])
+    | ExprShape.ShapeVar v -> Expr.Var v
+    | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v,renameVars depth vars expr)
+    | ExprShape.ShapeCombination(o, exprs) ->
+        ExprShape.RebuildShapeCombination(o, List.map (renameVars depth vars) exprs)
+    
+    let rec private invertPipelines = function
+    | SpecificCall(<@ (|>) @>) (_, _, exprs)->
+        match exprs with
+        |[e;Lambda(var, Call(e2,mi, e3))] ->
+            /// Replace the last element in the list with the first expression 
+            let args = e::(e3 |> List.rev |> List.tail) |> List.rev
+            invertPipelines(Expr.Call(mi, args))
+        |[e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
+            invertPipelines(Expr.Call(mi, [e2; e1]))
+        | _ -> failwith "unexpected use of pipelining operator"
+    | ExprShape.ShapeVar v -> Expr.Var v
+    | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v, invertPipelines expr)
+    | ExprShape.ShapeCombination(o, exprs) ->
+        ExprShape.RebuildShapeCombination(o, List.map invertPipelines exprs)
+
+    let rec firstLet = function
+    | Let(v, e1,e2) as l -> [l]
+    | ExprShape.ShapeVar v -> []
+    | ExprShape.ShapeLambda(v, expr) -> firstLet expr
+    | ExprShape.ShapeCombination(o, exprs) ->
+        List.map firstLet exprs
+        |> List.concat
+    let rec removeLet = function
+    | Let(v, e1,e2) -> e2
+    | ExprShape.ShapeVar v -> Expr.Var v
+    | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v, removeLet expr)
+    | ExprShape.ShapeCombination(o, exprs) ->
+        ExprShape.RebuildShapeCombination(o, List.map removeLet exprs)
+    // Renames variables so that inner scope variables will always have a different name than the outer scope
+    let rec private orderLetBindings expr =
+        let order parameters args rebuild = 
+            let temp = function
+                | Let(v,e1,e2), (x:ParameterInfo) ->
+                    let name = sprintf "temp_%s" x.Name
+                    Expr.Let(Var(name, x.ParameterType),
+                             Expr.Let(v,e1,e2), 
+                             expr)
+                | e,arg -> e
+            let ps = parameters
+                     |> Array.toList
+                     |> List.zip args
+                     |> List.map temp
+            let replaceLet = function
+            | Let(v,_,_) -> Expr.Var v
+            | e -> e
+                
+            let rec extractLet inner = function
+            | [] -> inner
+            | Let(v,e1,e2)::xs -> Expr.Let(v, e1, extractLet inner xs)
+            | x::xs -> extractLet inner xs
+            let reduced = rebuild(List.map replaceLet ps)
+            extractLet reduced ps
+
         match expr with
-        | Let(v, e1,e2) -> 
-            let name =
-                sprintf "%s%s" (String.init depth (fun i -> "_") ) v.Name
+        | Call(None, mi, args)-> 
+            let rebuild args = Expr.Call(mi, args)
+            let parameters = mi.GetParameters()
+            order parameters args rebuild
+        | NewObject(ci, args)->
+            let rebuild args = Expr.NewObject(ci, args)
+            let parameters = ci.GetParameters()
+            order parameters args rebuild
 
-            let v2 = Var(name, v.Type)
-            let newVars = (Map.add v v2 vars)
-            Expr.Let(v2, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
-            //Expr.Let(v, e1, e2)
-        | ExprShape.ShapeVar v when Map.containsKey v vars -> Expr.Var(vars.[v])
         | ExprShape.ShapeVar v -> Expr.Var v
-        | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v,renameVars depth vars expr)
+        | ExprShape.ShapeLambda(v, expr) -> 
+            Expr.Lambda(v,orderLetBindings expr)
         | ExprShape.ShapeCombination(o, exprs) ->
-            ExprShape.RebuildShapeCombination(o, List.map (renameVars depth vars) exprs)
+            (*let reduceLet = function
+            | Let(_,_,e2) -> e2
+            | e -> e
+            let orderedExpr = exprs 
+                              |> List.map orderLetBindings
+            let reduced = orderedExpr 
+                          |> List.map reduceLet
+            let rec insertLets outer exprs = 
+                match exprs with 
+                | [] -> outer
+                | Let(v,e1,e2)::xs ->
+                    match outer with
+                    | Let(o,o1,o2) ->
+                        let inner = Expr.Let(v, e1, o1)
+                        insertLets (Expr.Let(o,inner, o2)) xs
+                    | _ ->
+                        insertLets (Expr.Let(v, e1, orderLetBindings outer)) xs
+                | x::xs -> 
+                    insertLets outer xs
 
+            let outer = ExprShape.RebuildShapeCombination(o, reduced)
+            let ret = insertLets outer orderedExpr
+            ret*)
+            ExprShape.RebuildShapeCombination(o, List.map orderLetBindings exprs)
+    // Create temporary values for external method calls since they
+    // cannot easily be inlined inside expressions. The method call is moved to
+    // just after the surrounding let binding and the application is assigned to 
+    // a temporary variable. This variable is then used in the expression instead
+    // of inlining the external method
+    let private inlineExternalMethodCalls expr =
+        let rec next = function
+        | Let(v, e1,e2) as l ->
+            let xs, expr = replaceExternalMethodCalls [] e1
+            let rec insertTemp cont = function
+            | [] -> cont
+            | (v,expr)::xs -> Expr.Let(v, expr, insertTemp cont xs)
+            Expr.Let(v, insertTemp expr xs, next e2)
+        | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
+            let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
+            let res = Expr.Applications(this, [ for a in args -> [a]])
+            next res
+        | ExprShape.ShapeVar v -> Expr.Var v
+        | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v,next expr)
+        | ExprShape.ShapeCombination(o, exprs) ->
+            ExprShape.RebuildShapeCombination(o, List.map (next) exprs)
+
+        and replaceExternalMethodCalls xs = function
+        | Let(v, e1,e2) as l -> xs, next l
+        | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
+            let v = Var(sprintf "temp%A" (List.length xs), e.Type)
+            (v,e)::xs, Expr.Var(v)
+        | ExprShape.ShapeVar v -> xs, Expr.Var v
+        | ExprShape.ShapeLambda(v, expr) -> 
+            let xs, expr = replaceExternalMethodCalls xs expr
+            xs, Expr.Lambda(v, expr)
+        | ExprShape.ShapeCombination(o, exprs) ->
+            let children, exprs = List.map (replaceExternalMethodCalls []) exprs
+                                  |> List.unzip
+            List.append xs (List.concat children),
+            ExprShape.RebuildShapeCombination(o, exprs)
+
+        next expr
     // Expand function will recursively extract all inner functions
     let rec private expand vars expr = 
-      // First recursively process & replace variables
-        let(|HelperCall|_|) expr =
-            let rec find args expr =
-                match expr with
-                | Let(v, e1, e2) -> find (Map.add v e1 args) e2
-                | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, _) ->
-                    // Since the helper method has not been added to the list
-                    // of known expressions, insert it before the call is made.
-                    match expr with
-                    | Call(Some(m), mi, callArgs) ->
-                        let e:Expr = expand vars meth
-                        let v = Var(mi.Name, e.Type)
-                        Some(Expr.Let(v, e, expr))
-                        (*let inlinedArgs =
-                            let inlinedArg = function
-                            | Var(v) when Map.containsKey v args -> expand vars args.[v]
-                            | e -> expand vars e
-
-                            callArgs
-                            |> List.map inlinedArg
-                        Some(Expr.Call(m,meth,inlinedArgs)) *)
-                    | _ -> None
-                | _ -> None
-            find Map.empty expr
-        
         let (|IndirectProperty|_|) = function
             /// Handle multiple levels of indirection such as input.Position.xyz
             /// F# creates temporary objects which are not needed in HLSL 
@@ -319,6 +422,7 @@ struct %s
                 | _ -> None
             | _ -> None
         let expanded = 
+            // First recursively process & replace variables
             match expr with
             // If the variable has an assignment, then replace it with the expression
             | ExprShape.ShapeVar v when Map.containsKey v vars -> vars.[v]
@@ -330,15 +434,10 @@ struct %s
             | PropertyGet(Some(FieldGet(_, fi)), pi, _) ->
                 Expr.Var(Var(pi.Name, pi.PropertyType))
             | IndirectProperty(e) -> e
-            //| HelperCall(e) -> e
             | Call(body, DerivedPatterns.MethodWithReflectedDefinition meth, args) as e ->
                 let this = match body with Some b -> Expr.Application(meth, b) | _ -> meth
                 let res = Expr.Applications(this, [ for a in args -> [a]])
                 renameVars 0 Map.empty (expand vars res)
-            //| Sequential(ForIntegerRangeLoop(i, first, last, dothis),e2) ->
-            //    let rec unrollLoop = function
-            //    | Sequential(VarSet(x,e), e2) -> Expr.Let(x, e, unrollLoop e2)
-            //    | VarSet(x,e) -> Expr.Let(x, e, unrollLoop e2)
             | ExprShape.ShapeLambda(v, expr) ->
                 Expr.Lambda(v, expand vars expr)
             | ExprShape.ShapeCombination(o, exprs) ->
@@ -492,8 +591,17 @@ struct %s
             |> String.concat ","
         (* Since we do not support inner functions, we will inline all local function definitions
            by replacing all function definitions with their body, and then replacing the application *)
-        let expr = renameVars 0 Map.empty expr
-        methodBody "return" (expand Map.empty expr)
+        let inverted = invertPipelines expr
+        let expanded = expand Map.empty inverted
+        let ordered = orderLetBindings expanded
+        let renamed = renameVars 0 Map.empty ordered 
+        methodBody "return" renamed
+        (*
+        invertPipelines
+       // >> renameVars 0 Map.empty
+        >> expand Map.empty
+        >> orderLetBindings
+        >> methodBody "return"*)
 
     /// A tuple representing the generated HLSL for the shader method as the first value
     /// and the method name as the second.

@@ -57,12 +57,6 @@ type TestShaderWithMatrixCast(obj:Shaders.BlinnPhong.ObjectConstants) =
         input.PositionHS.xyz * float3x3(obj.World)
          
 //=======================================================================================
-type TestHigherOrderFunctions(obj:Shaders.BlinnPhong.ObjectConstants) =
-    [<ReflectedDefinition>]
-    let foo(x:int) (compute:int->int) = 
-        compute x
-         
-//=======================================================================================
 module ShaderGenerationTests =
     let assertShader expected (t:Type) =
         let shaderCode = ShaderTranslator.shaderMethods t
@@ -80,8 +74,8 @@ module ShaderGenerationTests =
         [<ShaderEntry>]
         member m.pixel(input:Simplistic.PSInput) =
             let final x = color x (0.5f+1.0f) 1.0f
-            let pos = final 3.0f
-            float4(pos,1.0f)
+            let pos = 2.0f*(final 3.0f)
+            float4(pos,2.0f)
 
     [<Fact>]
     let ``External methods should be inlined``() =
@@ -89,11 +83,15 @@ module ShaderGenerationTests =
 {
     float3 pos;
     {
-        float _y=(0.5f)+(1.0f);
-        float _z = 1.0f;
-        pos = float3(3.0f, _y, _z);
+        float3 _temp_y;
+        {
+            float __y=(0.5f)+(1.0f);
+            float __z = 1.0f;
+            _temp_y = float3(3.0f, __y, __z);
+        }
+        pos = (2.0f)*(_temp_y);
     }
-    return float4(pos, 1.0f);
+    return float4(pos, 2.0f);
 };"
         let shaderCode = ShaderTranslator.shaderMethods typeof<TestShaderWithExternalMethod>
         match shaderCode |> Seq.toList with
@@ -366,26 +364,11 @@ Pad the last field or set the size using explicit packing.")
                         foo 3 double
                     @>
         let expected = @"
-        int _amplitude = 5;
-        int _noise = (2)*(3);
-        return (_amplitude)*(_noise);"
+        int amplitude = 5;
+        int noise = (2)*(3);
+        return (amplitude)*(noise);"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
     
-    [<ShaderFunction>]
-    let foo(z:float3) =
-        let mutable x = z*2.0f
-        //x <- x + 2
-        x  
-    [<Fact>]
-    let ``External methods should not be inlined. They are generated seperately and treated as function calls ``() =
-
-        let expr = <@ let d = foo(float3(1.0f,1.0f,1.0f)) 
-                      d@>
-        let expected = @"
-            int d = foo(5);
-            return d;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
-
     [<Fact>]
     let ``Method calls should modify variable names inside scope to prevent clashes``() =
 
@@ -483,6 +466,87 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int y = (((5)+(5))*((5)+(5)))/(2);
             return y;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Unary negation``() =
+        let expr = 
+            <@  let color lightDir normal = 
+                    normal 
+                    |> dot -lightDir
+                float3(1.0f, color (float3(0.1f,0.2f,0.3f)) (float3(1.0f,2.0f,3.0f)), 4.0f)  @>
+        let expected = @"
+            return float3(1.0f,dot(-(float3(0.1f,0.2f,0.3f)),float3(1.0f,2.0f,3.0f)), 4.0f);"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Should inline temporaries``() =
+        let expr = 
+            <@  let calc x = 
+                    x 
+                    |> mul 3
+                    |> mul 4
+                    |> mul 5
+                calc 2  @>
+        let expected = @"
+            return mul(5,mul(4,mul(3, 2)));"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Should inline composed functions``() =
+        let expr = 
+            <@  let calc = 
+                    mul 3
+                    >> mul 4
+                    >> mul 5
+                calc 2  @>
+        let expected = @"
+            return mul(5,mul(4,mul(3, 2)));"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Scoping problem``() =
+        let expr = <@ 
+                      let calc(x:float32) =
+                          let p = abs(x)
+                          p
+                      float3(calc(1.0f), calc(2.0f), calc(3.0f))
+                      @>
+        let expected = @"
+            float temp_x;
+            {
+                float _p = abs(1.0f);
+                temp_x = _p;
+            }
+            float temp_y;
+            {
+                float _p = abs(2.0f);
+                temp_y = _p;
+            }
+            float temp_z;
+            { 
+                float _p = abs(3.0f);
+                temp_z = _p;
+            }
+            return float3(temp_x,temp_y,temp_z);"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Variables inside scope cannot have the same name as variables outside``() =
+        let expr = <@ 
+                      let calc(t:float32) =
+                          let x = abs(t)
+                          x
+                      let x = calc 4.0f
+                      x
+                      @>
+        let expected = @"
+            float x;
+            {
+                float _x = abs(4.0f);
+                x = _x;
+            }
+            return x;"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
