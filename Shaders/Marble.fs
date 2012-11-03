@@ -144,18 +144,6 @@ module Marble =
 
             let AA = perm2d(P.xy) + P.z
             // AND ADD BLENDED RESULTS FROM 8 CORNERS OF CUBE
-            (*let A = gradperm AA.x p
-            let B = gradperm AA.z (p + float3(-1.0f,  0.0f, 0.0f) )
-            let C = gradperm AA.y (p + float3(0.0f, -1.0f, 0.0f) )
-            let D = gradperm AA.w (p + float3(-1.0f, -1.0f, 0.0f) )
-            let E = gradperm (AA.x+one)  (p + float3( 0.0f,  0.0f, -1.0f) )
-            let F = gradperm (AA.z+one)    (p + float3(-1.0f,  0.0f, -1.0f) )
-            let G = gradperm (AA.y+one)   (p + float3( 0.0f, -1.0f, -1.0f) )
-            let H = gradperm (AA.w+one)    (p + float3(-1.0f, -1.0f, -1.0f) )
-            lerpf(lerpf(lerpf(A, B, f.x),
-                        lerpf(C, D, f.x), f.y),
-                  lerpf(lerpf(E ,F, f.x),
-                        lerpf(G, H, f.x), f.y), f.z); *)
             let corner = cornerNoise p
             let left =  float4(corner (AA.x)     0.0f 0.0f 0.0f,
                                corner (AA.x+one) 0.0f 0.0f 1.0f,
@@ -208,13 +196,11 @@ module Marble =
 
         [<ShaderFunction>]
         let turbulance(pos:float3) =
-            let W = 800.0f // W = Image width in pixels
+            let absNoise =  perlin >> abs
             let mutable t = -0.5f
             let mutable f = 1.0f
             for i in 1..7 do
-                //let absNoise x = x|> perlin |> abs
-                let p = perlin(pos*f)
-                let n = abs(p)
+                let n = absNoise(pos*f)
                 t <- t + n/f
                 f <- f*2.0f
             t
@@ -268,15 +254,11 @@ module Marble =
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
             let lumpy(pos:float3) = 
-                let p = perlin(pos*8.0f)
-                0.03f*p
+                0.03f*perlin(pos*8.0f)
             let marbled(pos:float3) = 
-                let turb = turbulance(pos)
-                let s = stripes (pos.x + 2.0f*turb) 1.6f
-                0.01f*s
+                0.01f*stripes (pos.x + 2.0f*turbulance(pos)) 1.6f
             let crinkled(pos:float3) = 
-                let t=turbulance pos
-                -0.1f*t
+                -0.1f*turbulance pos
             let localPos = input.PositionOS
 
             let normal = bump marbled localPos (normalize input.Normal)

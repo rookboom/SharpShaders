@@ -313,13 +313,15 @@ struct %s
                 | Let(v,e1,e2), (x:ParameterInfo) ->
                     let name = sprintf "temp_%s" x.Name
                     Expr.Let(Var(name, x.ParameterType),
-                             Expr.Let(v,e1,e2), 
+                             Expr.Let(v,e1, e2), 
                              expr)
                 | e,arg -> e
+
             let ps = parameters
                      |> Array.toList
                      |> List.zip args
                      |> List.map temp
+
             let replaceLet = function
             | Let(v,_,_) -> Expr.Var v
             | e -> e
@@ -328,14 +330,21 @@ struct %s
             | [] -> inner
             | Let(v,e1,e2)::xs -> Expr.Let(v, e1, extractLet inner xs)
             | x::xs -> extractLet inner xs
+
             let reduced = rebuild(List.map replaceLet ps)
             extractLet reduced ps
 
         match expr with
+        //| VarSet(mv, expr) ->
+        //    match expr with
+        //    | Let(v,e1,e2) -> Expr.Let(v,e1,Expr.VarSet(mv, e2))
+        //    | e -> e
         | Call(None, mi, args)-> 
+            let orderedArgs = args |> List.map orderLetBindings
             let rebuild args = Expr.Call(mi, args)
             let parameters = mi.GetParameters()
-            order parameters args rebuild
+            let res = order parameters orderedArgs rebuild
+            res
         | NewObject(ci, args)->
             let rebuild args = Expr.NewObject(ci, args)
             let parameters = ci.GetParameters()
@@ -345,29 +354,6 @@ struct %s
         | ExprShape.ShapeLambda(v, expr) -> 
             Expr.Lambda(v,orderLetBindings expr)
         | ExprShape.ShapeCombination(o, exprs) ->
-            (*let reduceLet = function
-            | Let(_,_,e2) -> e2
-            | e -> e
-            let orderedExpr = exprs 
-                              |> List.map orderLetBindings
-            let reduced = orderedExpr 
-                          |> List.map reduceLet
-            let rec insertLets outer exprs = 
-                match exprs with 
-                | [] -> outer
-                | Let(v,e1,e2)::xs ->
-                    match outer with
-                    | Let(o,o1,o2) ->
-                        let inner = Expr.Let(v, e1, o1)
-                        insertLets (Expr.Let(o,inner, o2)) xs
-                    | _ ->
-                        insertLets (Expr.Let(v, e1, orderLetBindings outer)) xs
-                | x::xs -> 
-                    insertLets outer xs
-
-            let outer = ExprShape.RebuildShapeCombination(o, reduced)
-            let ret = insertLets outer orderedExpr
-            ret*)
             ExprShape.RebuildShapeCombination(o, List.map orderLetBindings exprs)
     // Create temporary values for external method calls since they
     // cannot easily be inlined inside expressions. The method call is moved to
@@ -580,10 +566,11 @@ struct %s
                 let counter = i.Name
                 formatForLoop counter (num first) counter (num last) counter (methodBody "" dothis)
             | VarSet(x, expr) ->
-                sprintf "%s = %s;\n" x.Name (methodBody "" expr)
+                sprintf "%s = %s\n" x.Name (methodBody "" expr)
             | NewTuple(exprs) ->
                 argStr exprs
             | TupleGet(x, i) -> hlsl x
+
             | expr -> failwith(sprintf "TODO: add support for more expressions like: %A" expr)
         and argStr args =
             args

@@ -355,18 +355,42 @@ Pad the last field or set the size using explicit packing.")
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
-    let ``Higher order functions should be supported ``() =
-        let expr = <@   let foo (pos:int) f =
-                            let amplitude = 5
-                            let noise = f(pos)
-                            amplitude * noise
-                        let double x = 2*x
-                        foo 3 double
-                    @>
+    let ``Temporaries should be declared before assignments``() =
+        let expr = <@   let foo x = 
+                            let t = x*x
+                            t
+                        let mutable x = 0
+                        x <- foo 5
+                        x @>
         let expected = @"
-        int amplitude = 5;
-        int noise = (2)*(3);
-        return (amplitude)*(noise);"
+            int x = 0;
+            int t = (5)*(5);
+            x = t;
+            return x;"
+        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+
+    [<Fact>]
+    let ``Higher order functions should be supported ``() =
+        let expr = <@   
+                    let turbulance(pos:int) =
+                        let x = pos
+                        x*x
+                    let bump (F:int->int) (pos:int) = F(pos)
+                    let marbled(pos:int) = 
+                        pos + 2*turbulance(pos)
+                    bump marbled 1
+                @>
+        let expected = @"
+            int temp _y;
+            {
+                int _temp_y;
+                {
+                    int __x = 1;
+                    _temp_y = (__x)*(__x);
+                }
+                temp_y = (2)*(_temp_y);
+            }
+            return (1) + (temp_y);"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
     
     [<Fact>]
@@ -498,10 +522,9 @@ Pad the last field or set the size using explicit packing.")
             <@  let calc = 
                     mul 3
                     >> mul 4
-                    >> mul 5
                 calc 2  @>
         let expected = @"
-            return mul(5,mul(4,mul(3, 2)));"
+            return mul(4,mul(3, 2)))"
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
