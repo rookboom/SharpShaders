@@ -9,13 +9,12 @@ open PostSharp.Aspects
 open PostSharp.Extensibility
 open PostSharp.Reflection
 
-    // We set up multicast inheritance so  the aspect is automatically added to children types.
     [<MulticastAttributeUsage( MulticastTargets.Struct, Inheritance = MulticastInheritance.Strict )>]
     [<Serializable>]
     type ConstantPackingAttribute() =
         inherit TypeLevelAspect()
         interface IAspectProvider with
-        // This method is called at build time and should just provide other aspects.
+        // This method is called at build time and will inject our attributes.
             member m.ProvideAspects(targetElement) =
                 let targetType = targetElement :?> Type
                 
@@ -45,7 +44,7 @@ open PostSharp.Reflection
                     let fieldSize = Marshal.SizeOf(field.FieldType)
                     let alignedOffset = 
                         let next16ByteBoundary = align 16 offset
-                        let nextOffset = offset + fieldSize
+                        let nextOffset = offset + fieldSize 
                         if nextOffset > next16ByteBoundary then
                             // It is only acceptable to cross a 16 byte boundary if the field size is bigger
                             // than 16 bytes and the field starts on a 16 byte boundary.

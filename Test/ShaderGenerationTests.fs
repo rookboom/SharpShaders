@@ -367,6 +367,7 @@ Pad the last field or set the size using explicit packing.")
             int t = (5)*(5);
             x = t;
             return x;"
+        Assert.Equal("TODO:", "Not supported yet")
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]
@@ -525,6 +526,7 @@ Pad the last field or set the size using explicit packing.")
                 calc 2  @>
         let expected = @"
             return mul(4,mul(3, 2)))"
+        Assert.Equal("TODO:", "Not supported yer")
         Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
 
     [<Fact>]

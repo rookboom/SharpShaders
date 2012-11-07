@@ -578,9 +578,9 @@ struct %s
             |> String.concat ","
         (* Since we do not support inner functions, we will inline all local function definitions
            by replacing all function definitions with their body, and then replacing the application *)
-        let inverted = invertPipelines expr
-        let expanded = expand Map.empty inverted
-        let ordered = orderLetBindings expanded
+        let expanded = expand Map.empty expr
+        let inverted = invertPipelines expanded
+        let ordered = orderLetBindings inverted
         let renamed = renameVars 0 Map.empty ordered 
         methodBody "return" renamed
         (*
