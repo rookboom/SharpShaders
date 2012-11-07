@@ -58,7 +58,13 @@
   <ItemGroup>
     <Compile Include="Math.fs" />
     <Compile Include="MathConversion.fs" />
+    <Compile Include="Semantics.fs" />
+    <Compile Include="Textures.fs" />
+    <Compile Include="ExpressionTransformer.fs" />
+    <Compile Include="Mappings.fs" />
+    <Compile Include="ExpressionTranslator.fs" />
     <Compile Include="ShaderTranslator.fs" />
+    <Compile Include="InputElements.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>

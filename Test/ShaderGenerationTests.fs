@@ -4,6 +4,7 @@ open Xunit
 open SharpShaders
 open SharpShaders.Shaders
 open SharpShaders.Math
+open SharpShaders.ExpressionTranslator
 open System
 open System.Text
 open System.Reflection
@@ -123,7 +124,7 @@ float3 color(float x, float y, float z)
                       x @>
         Assert.EqualIgnoreWhitespace(@"
 float3 x = (1.0f) * (float3(1.0f,1.0f,1.0f));
-return x;", ShaderTranslator.methodBody expr)      
+return x;", methodBody expr)      
     
     [<Fact>]
     let ``Should generate constantBuffer in HLSL``() =            
@@ -166,7 +167,7 @@ cbuffer ObjectConstants
                       x @>
         Assert.EqualIgnoreWhitespace(@"
 float4 x = float4(1.0f, 1.0f, 1.0f, 1.0f);
-return x;", ShaderTranslator.methodBody expr)          
+return x;", methodBody expr)          
 
     
     [<Fact>]
@@ -218,12 +219,12 @@ float3 pixel(PSInput input): SV_TARGET
     [<Fact>]
     let ``Should convert 'subtract' to - operator``() =
         let expected = @"return (2) - (1);"
-        Assert.Equal(expected, ShaderTranslator.methodBody <@ subtract 1 2 @>)
+        Assert.Equal(expected, methodBody <@ subtract 1 2 @>)
 
     [<Fact>]
     let ``Should convert 'subtractFrom' to - operator``() =
         let expected = @"return (1) - (2);"
-        Assert.Equal(expected, ShaderTranslator.methodBody <@ subtractFrom 1 2 @>)
+        Assert.Equal(expected, methodBody <@ subtractFrom 1 2 @>)
 
     [<Fact>]
     let ``Should generate shader input structs in HLSL``() =            
@@ -352,7 +353,7 @@ Pad the last field or set the size using explicit packing.")
             float3 v = float3(1.0f,1.0f,1.0f);
             float x = (v).x;
             return x;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Temporaries should be declared before assignments``() =
@@ -368,7 +369,7 @@ Pad the last field or set the size using explicit packing.")
             x = t;
             return x;"
         Assert.Equal("TODO:", "Not supported yet")
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Higher order functions should be supported ``() =
@@ -392,7 +393,7 @@ Pad the last field or set the size using explicit packing.")
                 temp_y = (2)*(_temp_y);
             }
             return (1) + (temp_y);"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
     
     [<Fact>]
     let ``Method calls should modify variable names inside scope to prevent clashes``() =
@@ -410,7 +411,7 @@ Pad the last field or set the size using explicit packing.")
                 x=_P;
             }
             return (6.0f)*(x);"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Functions should be inlined ``() =
@@ -421,7 +422,7 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int y = (5)*(5);
             return y;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Higher order functions should be inlined ``() =
@@ -436,7 +437,7 @@ Pad the last field or set the size using explicit packing.")
             int y = abs((5) + ((5)*(5)));
             int z = (4) + ((4)+(4));
             return (y)+((z)*(y));"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``External higher order functions should be inlined in its own scope ``() =
@@ -455,7 +456,7 @@ Pad the last field or set the size using explicit packing.")
                 y = _x;
             }
             return y;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Modulus operator should be supported``() =
@@ -465,7 +466,7 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int y = (5) % (2);
             return y;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Function composition with existing function``() =
@@ -477,7 +478,7 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int y = abs((5)*(5));
             return y;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Multiple function composition ``() =
@@ -491,7 +492,7 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             int y = (((5)+(5))*((5)+(5)))/(2);
             return y;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Unary negation``() =
@@ -502,7 +503,7 @@ Pad the last field or set the size using explicit packing.")
                 float3(1.0f, color (float3(0.1f,0.2f,0.3f)) (float3(1.0f,2.0f,3.0f)), 4.0f)  @>
         let expected = @"
             return float3(1.0f,dot(-(float3(0.1f,0.2f,0.3f)),float3(1.0f,2.0f,3.0f)), 4.0f);"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Should inline temporaries``() =
@@ -515,7 +516,7 @@ Pad the last field or set the size using explicit packing.")
                 calc 2  @>
         let expected = @"
             return mul(5,mul(4,mul(3, 2)));"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Should inline composed functions``() =
@@ -527,7 +528,7 @@ Pad the last field or set the size using explicit packing.")
         let expected = @"
             return mul(4,mul(3, 2)))"
         Assert.Equal("TODO:", "Not supported yer")
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Scoping problem``() =
@@ -554,7 +555,7 @@ Pad the last field or set the size using explicit packing.")
                 temp_z = _p;
             }
             return float3(temp_x,temp_y,temp_z);"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     let ``Variables inside scope cannot have the same name as variables outside``() =
@@ -572,7 +573,7 @@ Pad the last field or set the size using explicit packing.")
                 x = _x;
             }
             return x;"
-        Assert.EqualIgnoreWhitespace(expected, ShaderTranslator.methodBody expr)
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
     /// <see>http://msdn.microsoft.com/en-us/library/bb509632.aspx</see>
