@@ -262,51 +262,6 @@ module Marble =
             let localPos = input.PositionOS
 
             let normal = bump marbled localPos (normalize input.Normal)
-            let intensity = 
-                let worldPos = input.PositionWS
-                let lightVec = worldPos - scene.Light
-                let lightDir = normalize lightVec
-                let diffuse = 
-                    let lightFallOff = 
-                        let lightVecSquared = (lightVec |> dot lightVec)
-                        scene.LightRangeSquared/lightVecSquared
-                        |> saturatef
-                    normal
-                    |> dot -lightDir
-                    |> mul mat.Diffuse
-                    |> mul lightFallOff
-                    |> saturatef
-                let specular = scene.Eye - worldPos
-                               |> normalize
-                               |> subtractFrom lightDir
-                               |> normalize
-                               |> dot normal
-                               |> saturatef
-                               |> pow mat.Shine
-                               |> mul mat.Specular
-                               |> saturatef
-
-                scene.AmbientLight + diffuse + specular
-                |> saturate
-
+            let intensity = BlinnPhong.intensity scene mat input.PositionWS normal
             float4(intensity, 1.0f)
-            (*let fbmNoise (pos:float3) f =
-                let amplitude = mat.Amplitude
-                let n = f(pos)
-                // First octave
-                let v1 = amplitude * n
-                let amp1 = amplitude * amplitude
-                // Second octave
-                let v2 = v1 + amp1 * n
-                let amp2 = amp1 * amplitude
-                // Third octave
-                let v3 = v2 + amp2 * n
-                let amp3 = amp2 * amplitude
-                // Fourth octave
-                v3 + amp3 * n
-            let diffuse = fbmNoise input.PositionWS absNoise
-            let grayMarble = float3(diffuse, diffuse, diffuse)
-            let color = Diffuse.color scene.LightDirection grayMarble input.Normal
-            float4(color, 1.0f)
-            *)
     

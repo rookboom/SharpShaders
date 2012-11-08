@@ -52,11 +52,40 @@ module BlinnPhong =
         member m.Normal = n
         member m.UV = uv
 
+    [<ShaderFunction>]
+    let intensity (scene:SceneConstants) (mat:MaterialConstants) worldPos normal =
+        let lightVec = worldPos - scene.Light
+        let lightDir = normalize lightVec
+        let diffuse = 
+            let lightFallOff = 
+                let lightVecSquared = (lightVec |> dot lightVec)
+                scene.LightRangeSquared/lightVecSquared
+                |> saturatef
+            normal 
+            |> dot -lightDir
+            |> mul mat.Diffuse
+            |> mul lightFallOff
+            |> saturatef
+        let specular = scene.Eye - worldPos
+                        |> normalize
+                        |> subtractFrom lightDir
+                        |> normalize
+                        |> dot normal
+                        |> saturatef
+                        |> pow mat.Shine
+                        |> mul mat.Specular
+                        |> saturatef
+
+        let lightColor = float3(1.0f,1.0f,1.0f)
+        scene.AmbientLight + (diffuse + specular)*lightColor
+        |> saturate
+
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants, 
                 diffuseTexture:Texture, 
                 linearSampler:SamplerStateDescription) =
+
         [<ShaderEntry>]
         member m.vertex(input:VSInput) =
             let worldPos = input.Position * obj.World
@@ -68,37 +97,12 @@ module BlinnPhong =
         [<ShaderEntry>]
         member m.pixel(input:PSInput) =
             let tex = diffuseTexture.Sample(linearSampler, input.UV)
-            let intensity =
-                let worldPos = input.PositionWS
-                let normal = input.Normal
-                             |> normalize
-                let lightVec = worldPos - scene.Light
-                let lightDir = normalize lightVec
-                let diffuse = 
-                    let lightFallOff = 
-                        let lightVecSquared = (lightVec |> dot lightVec)
-                        scene.LightRangeSquared/lightVecSquared
-                        |> saturatef
-                    normal 
-                    |> dot -lightDir
-                    |> mul mat.Diffuse
-                    |> mul lightFallOff
-                    |> saturatef
-                let specular = scene.Eye - worldPos
-                               |> normalize
-                               |> subtractFrom lightDir
-                               |> normalize
-                               |> dot normal
-                               |> saturatef
-                               |> pow mat.Shine
-                               |> mul mat.Specular
-                               |> saturatef
-
-                let lightColor = float3(1.0f,1.0f,1.0f)
-                scene.AmbientLight + (diffuse + specular)*lightColor
-                |> saturate
-
-            let color = tex.rgb * intensity 
+            let surface = intensity scene
+                                    mat
+                                    input.PositionWS
+                                    (normalize input.Normal)
+                                    
+            let color = tex.rgb * surface 
             float4(color, 1.0f)
 
 
