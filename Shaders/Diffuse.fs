@@ -29,6 +29,7 @@ module Diffuse =
         member m.PositionHS = p
         member m.Normal = n
 
+    [<ReflectedDefinition>]
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants) =
