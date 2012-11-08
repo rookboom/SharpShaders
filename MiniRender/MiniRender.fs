@@ -146,8 +146,11 @@ type MiniRender(windowHandle, width, height) =
     /// Creates and initializes the pixel shader and the scene and material constants.
     /// Returns callbacks for updating each of the constants
     member m.createPixelShader code constants =
+        m.createPixelShaderWithEntry "pixel" code constants
+
+    member m.createPixelShaderWithEntry entry code constants =
         let pixelShader, cb0 =
-            let psByteCode = compile code "pixel" "ps_5_0"
+            let psByteCode = compile code entry "ps_5_0"
                              |> disposable
 
             use shaderReflection = new ShaderReflection(psByteCode)

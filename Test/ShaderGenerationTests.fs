@@ -68,11 +68,11 @@ module ShaderGenerationTests =
         | _ -> failwith "Expected exactly 1 shader method for this dummy shader"         
 
     //=======================================================================================
+    [<ReflectedDefinition>]
     type TestShaderWithExternalMethod(mat:Simplistic.MaterialConstants) =
-        [<ShaderFunction>]
         let color x y z = float3(x,y,z)
 
-        [<ShaderEntry>]
+        [<PixelShader>]
         member m.pixel(input:Simplistic.PSInput) =
             let final x = color x (0.5f+1.0f) 1.0f
             let pos = 2.0f*(final 3.0f)

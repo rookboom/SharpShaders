@@ -48,7 +48,7 @@ let run() =
     let updateObjectConstants = 
         renderer.createVertexShader hlsl inputElements objectConstants
     let updateOtherConstants =
-        renderer.createPixelShader hlsl (sceneConstants, matConstants)
+        renderer.createPixelShaderWithEntry "marbled" hlsl (sceneConstants, matConstants)
 
     let pointSampler = 
         let desc = SamplerStateDescription( Filter = Filter.MinMagMipPoint,

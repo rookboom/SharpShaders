@@ -52,7 +52,7 @@ module BlinnPhong =
         member m.Normal = n
         member m.UV = uv
 
-    [<ShaderFunction>]
+    [<ReflectedDefinition>]
     let intensity (scene:SceneConstants) (mat:MaterialConstants) worldPos normal =
         let lightVec = worldPos - scene.Light
         let lightDir = normalize lightVec
@@ -80,13 +80,14 @@ module BlinnPhong =
         scene.AmbientLight + (diffuse + specular)*lightColor
         |> saturate
 
+    [<ReflectedDefinition>]
     type Shader(scene:SceneConstants,
                 obj:ObjectConstants,
                 mat:MaterialConstants, 
                 diffuseTexture:Texture, 
                 linearSampler:SamplerStateDescription) =
 
-        [<ShaderEntry>]
+        [<VertexShader>]
         member m.vertex(input:VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
@@ -94,7 +95,7 @@ module BlinnPhong =
                     input.Normal * float3x3(obj.World),
                     input.UV)    
 
-        [<ShaderEntry>]
+        [<PixelShader>]
         member m.pixel(input:PSInput) =
             let tex = diffuseTexture.Sample(linearSampler, input.UV)
             let surface = intensity scene

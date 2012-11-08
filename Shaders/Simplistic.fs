@@ -28,10 +28,10 @@ module Simplistic =
 
     type Shader(obj:ObjectConstants, mat:MaterialConstants) =
 
-        [<ShaderEntry>]
+        [<VertexShader>]
         member m.vertex(input:VSInput) =
             PSInput(input.Position * obj.WorldViewProjection)
 
-        [<ShaderEntry>]
+        [<PixelShader>]
         member m.pixel(input:PSInput) =
             float4(1.0f, 0.0f, 1.0f,1.0f)

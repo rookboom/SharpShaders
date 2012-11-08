@@ -15,8 +15,17 @@ open System.Runtime.InteropServices
 open SharpShaders.Math
 open SharpShaders.Mappings
 
-type ShaderEntry = ReflectedDefinitionAttribute
-type ShaderFunction = ReflectedDefinitionAttribute
+//type ShaderFunction = ReflectedDefinitionAttribute
+type PixelShaderAttribute() =
+    inherit Attribute()
+type VertexShaderAttribute() =
+    inherit Attribute()
+type GeometryShaderAttribute() =
+    inherit Attribute()
+type HullShaderAttribute() =
+    inherit Attribute()
+type DomainShaderAttribute() =
+    inherit Attribute()
 
 /// In order to write shader code in F# and execute the instructions on the GPU,
 /// we need an F# to HLSL translator. F# quotations allows us to easily obtain the
@@ -35,6 +44,9 @@ type ShaderFunction = ReflectedDefinitionAttribute
 /// PositionHS -> SV_POSITION
 /// Allowed types are: Color, float4x4, float4 
 module ShaderTranslator =
+    type MethodInfo with
+        member m.hasAttribute<'a>() = not(m.GetCustomAttribute(typeof<'a>) = null)
+
 
     /// The field members of the HLSL struct are constructed from the reflected
     /// properties of the F# type.
@@ -135,6 +147,12 @@ struct %s
         |> Seq.sortBy ``first private then public in declaration order``
         
 
+    let private isEntry(mi:MethodInfo) = 
+        mi.hasAttribute<PixelShaderAttribute>() ||
+        mi.hasAttribute<VertexShaderAttribute>() ||
+        mi.hasAttribute<GeometryShaderAttribute>() ||
+        mi.hasAttribute<HullShaderAttribute>() ||
+        mi.hasAttribute<DomainShaderAttribute>()
     /// We need to find all the input parameters to all the methods in the shader class.
     /// We do not need to look at output parameters since any output parameter is also
     /// the input of the next shader in the pipeline. 
@@ -143,9 +161,10 @@ struct %s
         let parameterType(pi:ParameterInfo) = pi.ParameterType
         methods shaderType
         //Only create input structs for entry points.
-        |> Seq.filter (fun mi -> mi.Name = "pixel" || mi.Name = "vertex")
+        |> Seq.filter isEntry
         |> Seq.collect parameters
         |> Seq.map parameterType
+        |> Seq.distinct
         |> Seq.map formatStruct
 
 
@@ -153,13 +172,6 @@ struct %s
     /// and the method name as the second.
     let shaderMethods(t:Type) =
         /// Recursively evaluate expressions and translating to HLSL
-        let (|EntryPoint|_|) name expr = 
-            match name with
-            | "pixel" | "vertex" -> 
-                match expr with
-                | Lambda(v, expr) -> Some(expr)
-                | _ -> failwith "Unexpected entry point for shader function"
-            | _ -> None
         let (|HelperFunction|_|) = function
             | Lambda(_, _) as expr-> 
                 let rec gather args expr =
@@ -171,11 +183,12 @@ struct %s
                 Some(gather [] expr)
             | _ -> None
 
-        let shaderMethod name = function
-            | EntryPoint name (Lambda(param, expr)) -> 
-                let methodAnnotation = if name = "pixel" then " : SV_TARGET" else ""
+        let shaderMethod(mi:MethodInfo) = function
+            | Lambda(v, Lambda(param, expr)) ->
+                let methodAnnotation = 
+                    if mi.hasAttribute<PixelShaderAttribute>() then " : SV_TARGET" else ""
                 sprintf "%s %s(%s %s)%s{ %s };"   (expr.Type.Name |> mapType)
-                                                name
+                                                mi.Name
                                                 (param.Type.Name |> mapType)
                                                 param.Name
                                                 methodAnnotation
@@ -193,7 +206,7 @@ struct %s
 
                 sprintf "%s %s(%s){ %s };"   
                                     (expr.Type.Name |> mapType)
-                                    name
+                                    mi.Name
                                     (parameters "" args)
                                     (ExpressionTranslator.methodBody expr)
             | _ -> failwith "Unexpected shader function"
@@ -202,12 +215,11 @@ struct %s
         let shader shaderMethodInfo =
             match shaderMethodInfo with
             | MethodWithReflectedDefinition(expr) -> 
-                shaderMethod shaderMethodInfo.Name expr
+                shaderMethod shaderMethodInfo expr
             | _ -> failwith "Expected method with reflected definition..."
         
         let methodName(mi:MethodInfo) = mi.Name
-        //let isReflected(mi:MethodInfo) = not(mi.GetCustomAttribute(typeof<ShaderFunction>) = null)
-        let isEntry(mi:MethodInfo) = mi.Name = "pixel" || mi.Name = "vertex"
+
         methods t
         |> Seq.filter isEntry
         |> Seq.map shader

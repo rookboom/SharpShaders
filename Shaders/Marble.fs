@@ -112,6 +112,7 @@ module Marble =
         member m.PositionOS = op
         member m.Normal = n
 
+    [<ReflectedDefinition>]
     type Shader(scene:BlinnPhong.SceneConstants,
                 obj:BlinnPhong.ObjectConstants,
                 mat:BlinnPhong.MaterialConstants,
@@ -119,17 +120,14 @@ module Marble =
                 gradients:Texture,
                 pointSampler:SamplerStateDescription) =
 
-        [<ShaderFunction>]
         let cornerNoise p (random:float32) x y z = 
             let grad = gradients.Sample(pointSampler, random)
             dot grad.xyz (p-float3(x,y,z))
 
-        [<ShaderFunction>]
         let gradperm (t:float32) p =
             let grad = gradients.Sample(pointSampler, t)
             dot grad.xyz p
 
-        [<ShaderFunction>]
         let perlin (pos:float3) =
             let perm2d(pos:float2) = 
                 permutation.Sample(pointSampler, pos)
@@ -162,23 +160,11 @@ module Marble =
             // Then reduce the line section to a point by interpolating in z
             lerpf(frontBack.x, frontBack.y, f.z) 
 
-        [<ShaderFunction>]
-        let color lightDirection (materialDiffuse:float3) normal = 
-            normal
-            |> normalize  
-            |> dot -lightDirection
-            |> (*) materialDiffuse
-            |> saturate
-            |> (+) (float3(0.3f,0.3f,0.3f))
-            |> saturate
-
-        [<ShaderFunction>]
         let stripes x f =
             let PI = 3.14159265f;
             let t = 0.5f + 0.5f * sin(f * 2.0f*PI * x);
             t * t - 0.5f;
 
-        [<ShaderFunction>]
         let fbm(pos:float3) =
             let Octaves = 10
             let Lacunarity = 2.0f
@@ -194,7 +180,6 @@ module Marble =
                 amp <- amp * Gain
             value
 
-        [<ShaderFunction>]
         let turbulance(pos:float3) =
             let absNoise =  perlin >> abs
             let mutable t = -0.5f
@@ -205,7 +190,6 @@ module Marble =
                 f <- f*2.0f
             t
 
-        [<ShaderFunction>]
         let bump F pos normal =
             let f0 = F(pos)
             let epsilon = 0.01f
@@ -218,19 +202,12 @@ module Marble =
             let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
             normal - dF|> normalize
             
-            (*
-        [<ShaderFunction>]
-        let turbulance pos f =
-            let W = 640.0f // W = Image width in pixels
-            let rec loop f t =
-                if f < W/12.0f then
-                    perlin pos f
-                    |> (/) f
-                    |> abs 
-                    |> loop(f*2.0f)
-                else
-                    t
-            loop -0.5f f *)
+        let surface F (input:PSInput) =
+            let localPos = input.PositionOS
+
+            let normal = bump F localPos (normalize input.Normal)
+            let intensity = BlinnPhong.intensity scene mat input.PositionWS normal
+            float4(intensity, 1.0f)
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
         member m.noise3D() =
@@ -243,7 +220,7 @@ module Marble =
             let noise i j = perlin (float3(float32 i/octave, float32 j/octave, 0.0f))
             Array2D.init 512 512 noise
 
-        [<ShaderEntry>]
+        [<VertexShader>]
         member m.vertex(input:Diffuse.VSInput) =
             let worldPos = input.Position * obj.World
             PSInput(input.Position * obj.WorldViewProjection,
@@ -251,17 +228,21 @@ module Marble =
                     input.Position.xyz,
                     input.Normal * float3x3(obj.World ))   
 
-        [<ShaderEntry>]
-        member m.pixel(input:PSInput) =
+        [<PixelShader>]
+        member m.lumpy(input:PSInput) =
             let lumpy(pos:float3) = 
                 0.03f*perlin(pos*8.0f)
+            surface lumpy input
+
+        [<PixelShader>]
+        member m.marbled(input:PSInput) =
             let marbled(pos:float3) = 
                 0.01f*stripes (pos.x + 2.0f*turbulance(pos)) 1.6f
+            surface marbled input
+
+        [<PixelShader>]
+        member m.crinkled(input:PSInput) =
             let crinkled(pos:float3) = 
                 -0.1f*turbulance pos
-            let localPos = input.PositionOS
-
-            let normal = bump marbled localPos (normalize input.Normal)
-            let intensity = BlinnPhong.intensity scene mat input.PositionWS normal
-            float4(intensity, 1.0f)
+            surface crinkled input
     
