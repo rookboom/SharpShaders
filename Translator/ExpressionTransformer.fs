@@ -39,6 +39,8 @@ module ExpressionTransformer =
             invertPipelines(Expr.Call(mi, args))
         |[e1;Let(_,e2,Lambda(_,Call(_,mi, e3)))] -> 
             invertPipelines(Expr.Call(mi, [e2; e1]))
+        |[e1;Let(_,e2,Lambda(_,NewObject(ci, x::xs)))] -> 
+            invertPipelines(Expr.NewObject(ci, [e1;e2]))
         | _ -> failwith "unexpected use of pipelining operator"
     | ExprShape.ShapeVar v -> Expr.Var v
     | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v, invertPipelines expr)

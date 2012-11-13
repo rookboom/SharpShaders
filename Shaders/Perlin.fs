@@ -205,8 +205,7 @@ module Perlin =
                 let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
                 normal - dF|> normalize
 
-            let color = BlinnPhong.surfaceColor scene mat input.PositionWS perturbedNormal
-            float4(color, 1.0f)
+            BlinnPhong.surfaceColor scene mat input.PositionWS perturbedNormal
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
         member m.noise3D() =

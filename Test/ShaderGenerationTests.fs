@@ -438,6 +438,16 @@ Pad the last field or set the size using explicit packing." typeName) *)
         Assert.EqualIgnoreWhitespace(expected, methodBody expr)
 
     [<Fact>]
+    let ``Should allow pipelining to new object operation``() =
+        let expr = 
+            <@  let y = float3(1.0f,1.0f,1.0f) |> withAlpha 1.0f
+                y  @>
+        let expected = @"
+            float4 y = float4(float3(1.0f,1.0f,1.0f),1.0f);
+            return y;"
+        Assert.EqualIgnoreWhitespace(expected, methodBody expr)
+
+    [<Fact>]
     let ``Higher order functions should be inlined ``() =
         let expr = 
             <@  let square x = x*x

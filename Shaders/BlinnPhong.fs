@@ -82,6 +82,7 @@ module BlinnPhong =
 
         scene.AmbientLight + diffuse + specular
         |> saturate
+        |> withAlpha 1.0f
 
     [<ReflectedDefinition>]
     type Shader(scene:SceneConstants,
@@ -106,7 +107,6 @@ module BlinnPhong =
                                         input.PositionWS
                                         (normalize input.Normal)
                                     
-            let color = tex.rgb * surface 
-            float4(color, 1.0f)
+            tex * surface
 
 

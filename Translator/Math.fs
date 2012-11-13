@@ -140,6 +140,8 @@ module Math =
         (^T : (member fmod : float32 -> ^T) (x,t))
     let saturatef(x:float32) = x.saturate()
     let lerpf(x,y,t:float32) = x + (y - x) * t
+    [<ReflectedDefinition>]
+    let withAlpha alpha (v:float3) = float4(v,alpha)
 
     [<Struct>]
     type int3(_x:int,_y:int,_z:int) =
