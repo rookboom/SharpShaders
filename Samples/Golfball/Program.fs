@@ -23,8 +23,9 @@ let run() =
     let sceneConstants, matConstants, objectConstants = 
         let light = eye + Vector3(5.0f, 5.0f, 0.0f)
         let white = float3(1.0f,1.0f,1.0f)
-        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 25.0f),
-        BlinnPhong.MaterialConstants(white, white, 50.0f),
+        let gray = float3(0.5f,0.5f,0.5f)
+        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 55.0f),
+        BlinnPhong.MaterialConstants(white, gray, 50.0f),
         BlinnPhong.ObjectConstants(fromMatrix(Matrix.Identity),
                                    fromMatrix(Matrix.Identity))
 
@@ -43,7 +44,7 @@ let run() =
     let render() =
         let world = 
             let time = float32(sw.ElapsedMilliseconds)/1000.0f
-            let rotation = Matrix.RotationYawPitchRoll(time, 2.0f*time, 0.0f)
+            let rotation = Matrix.RotationYawPitchRoll(0.25f*time, 0.5f*time, 0.0f)
             let scale = Matrix.Scaling(0.05f)
             scale*rotation
         BlinnPhong.ObjectConstants(fromMatrix(world*viewProjection), fromMatrix(world))
