@@ -206,7 +206,7 @@ module Marble =
             let localPos = input.PositionOS
 
             let normal = bump F localPos (normalize input.Normal)
-            let intensity = BlinnPhong.intensity scene mat input.PositionWS normal
+            let intensity = BlinnPhong.surfaceColor scene mat input.PositionWS normal
             float4(intensity, 1.0f)
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
@@ -231,7 +231,7 @@ module Marble =
         [<PixelShader>]
         member m.lumpy(input:PSInput) =
             let lumpy(pos:float3) = 
-                0.03f*perlin(pos*8.0f)
+                0.03f*perlin(pos*10.0f)
             surface lumpy input
 
         [<PixelShader>]
@@ -243,6 +243,6 @@ module Marble =
         [<PixelShader>]
         member m.crinkled(input:PSInput) =
             let crinkled(pos:float3) = 
-                -0.1f*turbulance pos
+                -0.15f*turbulance pos
             surface crinkled input
     

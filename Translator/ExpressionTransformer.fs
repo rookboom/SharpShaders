@@ -12,14 +12,17 @@ module ExpressionTransformer =
     // Renames variables so that inner scope variables will always have a different name than the outer scope
     //---------------------------------------------------------------------------------------------
     let rec private renameVars depth vars  = function
-    | Let(v, e1,e2) -> 
-        let name =
-            sprintf "%s%s" (String.init depth (fun i -> "_") ) v.Name
-
-        let v2 = Var(name, v.Type)
-        let newVars = (Map.add v v2 vars)
-        Expr.Let(v2, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
-        //Expr.Let(v, e1, e2)
+    | Let(v, e1,e2) ->
+        let nameClash (k:Var) _ =  k.Name = v.Name
+        if vars |> Map.exists nameClash then
+            let name =
+                sprintf "%s%s" (String.init depth (fun i -> "_") ) v.Name
+            let v2 = Var(name, v.Type)
+            let newVars = (Map.add v v2 vars)
+            Expr.Let(v2, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
+        else
+            let newVars = (Map.add v v vars)
+            Expr.Let(v, renameVars (depth+1) newVars e1, renameVars depth newVars e2)
     | ExprShape.ShapeVar v when Map.containsKey v vars -> Expr.Var(vars.[v])
     | ExprShape.ShapeVar v -> Expr.Var v
     | ExprShape.ShapeLambda(v, expr) -> Expr.Lambda(v,renameVars depth vars expr)
@@ -90,10 +93,13 @@ module ExpressionTransformer =
             extractLet reduced ps
 
         match expr with
-        //| VarSet(mv, expr) ->
-        //    match expr with
-        //    | Let(v,e1,e2) -> Expr.Let(v,e1,Expr.VarSet(mv, e2))
-        //    | e -> e
+        // We switch the order of the arguments to the 'pow' function
+        // so that the value is curried instead of the power. This allows
+        // for more intuitive pipelining i.e To raise a value to the power of 2
+        // one can write value |> pow 2
+        | Call(None,mi,[e1; e2]) when mi.Name = "pow" ->
+            let e = Expr.Call(mi, [e2; e1])
+            e
         | Call(None, mi, args)-> 
             let orderedArgs = args |> List.map orderLetBindings
             let rebuild args = Expr.Call(mi, args)

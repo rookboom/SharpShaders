@@ -8,7 +8,7 @@ open System.Windows.Forms
 open System.Diagnostics
 open System.Drawing
 
-let width, height = 1024, 768
+let width, height = 640, 480
 let form = new Form(Visible = true, Text = "Perlin Noise", Width = width, Height = height)
 let saveNoiseSlice =
     use bmp = new Bitmap(512, 512)
@@ -36,11 +36,16 @@ let run() =
         |> Seq.toArray
 
     System.Diagnostics.Debug.WriteLine(hlsl);
-    let eye = Vector3(0.0f,0.0f,-6.0f)
+    let eye = Vector3(0.0f,0.0f,-4.0f)
     let sceneConstants, matConstants, objectConstants = 
         let light = Vector3(5.0f, 5.0f, -5.0f)
-        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.01f,0.01f,0.01f), 25.0f),
-        BlinnPhong.MaterialConstants(0.2f, 0.3f, 0.1f, 10.0f),
+        let darkRed = float3(0.5f,0.0f,0.0f)
+        let darkBlue = float3(0.0f,0.0f,1.0f)
+        let darkGreen = float3(0.0f,0.5f,0.0f)
+        let gray = float3(0.5f,0.5f,0.5f)
+
+        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 100.0f),
+        BlinnPhong.MaterialConstants(darkGreen, gray, 50.0f),
         BlinnPhong.ObjectConstants(fromMatrix(Matrix.Identity),
                                    fromMatrix(Matrix.Identity))
 
@@ -48,7 +53,7 @@ let run() =
     let updateObjectConstants = 
         renderer.createVertexShader hlsl inputElements objectConstants
     let updateOtherConstants =
-        renderer.createPixelShaderWithEntry "marbled" hlsl (sceneConstants, matConstants)
+        renderer.createPixelShaderWithEntry "crinkled" hlsl (sceneConstants, matConstants)
 
     let pointSampler = 
         let desc = SamplerStateDescription( Filter = Filter.MinMagMipPoint,
@@ -74,7 +79,7 @@ let run() =
     let render() =
         let world = 
             let time = float32(sw.ElapsedMilliseconds)/1000.0f
-            Matrix.RotationYawPitchRoll(time, 1.0f*time, 0.0f)
+            Matrix.RotationYawPitchRoll(0.25f*time, 0.5f*time, 0.0f)
         BlinnPhong.ObjectConstants(fromMatrix(world*viewProjection), fromMatrix(world))
         |> updateObjectConstants
         draw()

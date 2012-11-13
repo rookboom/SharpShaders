@@ -22,8 +22,9 @@ let run() =
     let eye = Vector3(0.0f,0.0f,-6.0f)
     let sceneConstants, matConstants, objectConstants = 
         let light = eye + Vector3(5.0f, 5.0f, 0.0f)
-        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.01f,0.01f,0.01f), 20.0f),
-        BlinnPhong.MaterialConstants(0.1f, 0.5f, 0.5f, 2.0f),
+        let white = float3(1.0f,1.0f,1.0f)
+        BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 25.0f),
+        BlinnPhong.MaterialConstants(white, white, 50.0f),
         BlinnPhong.ObjectConstants(fromMatrix(Matrix.Identity),
                                    fromMatrix(Matrix.Identity))
 

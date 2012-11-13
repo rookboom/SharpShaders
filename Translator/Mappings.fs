@@ -11,7 +11,8 @@ module Mappings =
     let private methodMapping = dict ["saturatef", "saturate"
                                       "lerpf", "lerp"
                                       "Abs", "abs"
-                                      "Sin", "sin"]
+                                      "Sin", "sin"
+                                      "Max", "max"]
     let private valueOrKey(d:IDictionary<string, string>) key =
         if d.ContainsKey(key) then
             d.[key]

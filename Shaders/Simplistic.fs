@@ -26,6 +26,7 @@ module Simplistic =
         val MaterialDiffuse : Color4
         new (color) = { MaterialDiffuse = color }
 
+    [<ReflectedDefinition>]
     type Shader(obj:ObjectConstants, mat:MaterialConstants) =
 
         [<VertexShader>]

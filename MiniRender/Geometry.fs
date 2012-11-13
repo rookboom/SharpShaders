@@ -88,9 +88,9 @@ module Geometry =
             |> Array.map vector3
 
         let normals = 
-            let invert v = -vector3(v)
+            //let invert v = -vector3(v)
             mesh.Normals 
-            |> Array.map invert
+            |> Array.map vector3
         let uvs = 
             if mesh.HasTextureCoords(0) then
                 mesh.GetTextureCoords(0)

@@ -37,13 +37,11 @@ cbuffer ObjectConstants
 
 cbuffer MaterialConstants
 {
-	float Ambient : TEXCOORD0;
+	float3 Diffuse : TEXCOORD0;
 
-	float Diffuse : TEXCOORD1;
+	float3 Specular : TEXCOORD1;
 
-	float Specular : TEXCOORD2;
-
-	float Shine : TEXCOORD3;
+	float Shine : TEXCOORD2;
 
 };
 
@@ -77,678 +75,1045 @@ o.PositionWS = (worldPos).xyz;
 o.PositionOS = ((input).Position).xyz;
 o.Normal = mul((input).Normal,(float3x3)(World));
 return o; };
-float4 pixel(PSInput input) : SV_TARGET{ float3 localPos = (input).PositionOS;
+float4 lumpy(PSInput input) : SV_TARGET{ float3 localPos = (input).PositionOS;
 float3 normal;
 {
 	float3 _normal = normalize((input).Normal);
-	float _f0;
+	float f0;
 	{
-		float __temp_y;
+		float temp_y;
 		{
-			float ___x;
+			float3 pos = (localPos) * (10.0f);
+			float3 P = (fmod(floor(pos),256.0f)) / (256.0f);
+			float3 p = (pos) - (floor(pos));
+			float one = (1.0f) / (256.0f);
+			float3 f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+			float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+			float4 left;
 			{
-				float ____temp_y;
+				float temp_x;
 				{
-					float _____temp_y;
-					{
-						float ______W = 800.0f;
-						float ______t = -0.5f;
-						float ______f = 1.0f;
-
-						for (int i=1; i <= 7; i++)
-						{
-							float ______p;
-							{
-								float3 ________pos = (localPos) * (______f);
-								float3 ________P = (fmod(floor(________pos),256.0f)) / (256.0f);
-								float3 ________p = (________pos) - (floor(________pos));
-								float ________one = (1.0f) / (256.0f);
-								float3 ________f = (((________p) * (________p)) * (________p)) * (((________p) * (((________p) * (6.0f)) - (15.0f))) + (10.0f));
-								float4 ________AA = (permutation.Sample(pointSampler,(________P).xy)) + ((________P).z);
-								float4 ________left;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).x);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).x) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).y);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).y) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,1.0f)));
-									}
-									________left = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________right;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).z);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).z) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).w);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).w) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,1.0f)));
-									}
-									________right = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________topDown = lerp(________left,________right,(________f).x);
-								float2 ________frontBack = lerp((________topDown).xy,(________topDown).zw,(________f).y);
-								______p = lerp((________frontBack).x,(________frontBack).y,(________f).z);
-							}
-							float ______n = abs(______p);
-							______t = float ______temp_y;
-							{
-								float _______temp_x;
-								{
-									float ________temp_value;
-									{
-										float3 _________P = (fmod(floor((localPos) * (______f)),256.0f)) / (256.0f);
-										float3 _________p = ((localPos) * (______f)) - (floor((localPos) * (______f)));
-										float _________one = (1.0f) / (256.0f);
-										float3 _________f = (((_________p) * (_________p)) * (_________p)) * (((_________p) * (((_________p) * (6.0f)) - (15.0f))) + (10.0f));
-										float4 _________AA = (permutation.Sample(pointSampler,(_________P).xy)) + ((_________P).z);
-										float4 _________left;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).x);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).x) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).y);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).y) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,1.0f)));
-											}
-											_________left = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________right;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).z);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).z) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).w);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).w) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,1.0f)));
-											}
-											_________right = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________topDown = lerp(_________left,_________right,(_________f).x);
-										float2 _________frontBack = lerp((_________topDown).xy,(_________topDown).zw,(_________f).y);
-										________temp_value = lerp((_________frontBack).x,(_________frontBack).y,(_________f).z);
-									}
-									_______temp_x = abs(________temp_value);
-								}
-								______temp_y = (_______temp_x) / (______f);
-							}
-							(______t) + (______temp_y);;
-							______f =  (______f) * (2.0f);;
-							;
-						};_____temp_y = ______t;
-					}
-					____temp_y = (2.0f) * (_____temp_y);
+					float4 grad = gradients.Sample(pointSampler,(AA).x);
+					temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
 				}
-				___x = ((localPos).x) + (____temp_y);
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).y);
+					temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+				}
+				left = float4(temp_x,_temp_y,temp_z,temp_w);
 			}
-			float ___f = 1.6f;
-			float ___PI = 3.141593f;
-			float ___t = (0.5f) + ((0.5f) * (sin((((___f) * (2.0f)) * (___PI)) * (___x))));
-			__temp_y = ((___t) * (___t)) - (0.5f);
+			float4 right;
+			{
+				float temp_x;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).z);
+					temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+				}
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).w);
+					temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+				}
+				right = float4(temp_x,_temp_y,temp_z,temp_w);
+			}
+			float4 topDown = lerp(left,right,(f).x);
+			float2 frontBack = lerp((topDown).xy,(topDown).zw,(f).y);
+			temp_y = lerp((frontBack).x,(frontBack).y,(f).z);
 		}
-		_f0 = (0.01f) * (__temp_y);
+		f0 = (0.03f) * (temp_y);
 	}
-	float _epsilon = 0.01f;
-	float3 _dx = float3(_epsilon,0.0f,0.0f);
-	float3 _dy = float3(0.0f,_epsilon,0.0f);
-	float3 _dz = float3(0.0f,0.0f,_epsilon);
-	float _fx;
+	float epsilon = 0.00001f;
+	float3 dx = float3(epsilon,0.0f,0.0f);
+	float3 dy = float3(0.0f,epsilon,0.0f);
+	float3 dz = float3(0.0f,0.0f,epsilon);
+	float fx;
 	{
-		float __temp_y;
+		float temp_y;
 		{
-			float ___x;
+			float3 pos = ((localPos) + (dx)) * (10.0f);
+			float3 P = (fmod(floor(pos),256.0f)) / (256.0f);
+			float3 p = (pos) - (floor(pos));
+			float one = (1.0f) / (256.0f);
+			float3 f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+			float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+			float4 left;
 			{
-				float ____temp_y;
+				float temp_x;
 				{
-					float _____temp_y;
-					{
-						float ______W = 800.0f;
-						float ______t = -0.5f;
-						float ______f = 1.0f;
-
-						for (int i=1; i <= 7; i++)
-						{
-							float ______p;
-							{
-								float3 ________pos = ((localPos) + (_dx)) * (______f);
-								float3 ________P = (fmod(floor(________pos),256.0f)) / (256.0f);
-								float3 ________p = (________pos) - (floor(________pos));
-								float ________one = (1.0f) / (256.0f);
-								float3 ________f = (((________p) * (________p)) * (________p)) * (((________p) * (((________p) * (6.0f)) - (15.0f))) + (10.0f));
-								float4 ________AA = (permutation.Sample(pointSampler,(________P).xy)) + ((________P).z);
-								float4 ________left;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).x);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).x) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).y);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).y) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,1.0f)));
-									}
-									________left = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________right;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).z);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).z) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).w);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).w) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,1.0f)));
-									}
-									________right = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________topDown = lerp(________left,________right,(________f).x);
-								float2 ________frontBack = lerp((________topDown).xy,(________topDown).zw,(________f).y);
-								______p = lerp((________frontBack).x,(________frontBack).y,(________f).z);
-							}
-							float ______n = abs(______p);
-							______t = float ______temp_y;
-							{
-								float _______temp_x;
-								{
-									float ________temp_value;
-									{
-										float3 _________P = (fmod(floor(((localPos) + (_dx)) * (______f)),256.0f)) / (256.0f);
-										float3 _________p = (((localPos) + (_dx)) * (______f)) - (floor(((localPos) + (_dx)) * (______f)));
-										float _________one = (1.0f) / (256.0f);
-										float3 _________f = (((_________p) * (_________p)) * (_________p)) * (((_________p) * (((_________p) * (6.0f)) - (15.0f))) + (10.0f));
-										float4 _________AA = (permutation.Sample(pointSampler,(_________P).xy)) + ((_________P).z);
-										float4 _________left;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).x);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).x) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).y);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).y) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,1.0f)));
-											}
-											_________left = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________right;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).z);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).z) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).w);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).w) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,1.0f)));
-											}
-											_________right = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________topDown = lerp(_________left,_________right,(_________f).x);
-										float2 _________frontBack = lerp((_________topDown).xy,(_________topDown).zw,(_________f).y);
-										________temp_value = lerp((_________frontBack).x,(_________frontBack).y,(_________f).z);
-									}
-									_______temp_x = abs(________temp_value);
-								}
-								______temp_y = (_______temp_x) / (______f);
-							}
-							(______t) + (______temp_y);;
-							______f =  (______f) * (2.0f);;
-							;
-						};_____temp_y = ______t;
-					}
-					____temp_y = (2.0f) * (_____temp_y);
+					float4 grad = gradients.Sample(pointSampler,(AA).x);
+					temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
 				}
-				___x = (((localPos) + (_dx)).x) + (____temp_y);
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).y);
+					temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+				}
+				left = float4(temp_x,_temp_y,temp_z,temp_w);
 			}
-			float ___f = 1.6f;
-			float ___PI = 3.141593f;
-			float ___t = (0.5f) + ((0.5f) * (sin((((___f) * (2.0f)) * (___PI)) * (___x))));
-			__temp_y = ((___t) * (___t)) - (0.5f);
+			float4 right;
+			{
+				float temp_x;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).z);
+					temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+				}
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).w);
+					temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+				}
+				right = float4(temp_x,_temp_y,temp_z,temp_w);
+			}
+			float4 topDown = lerp(left,right,(f).x);
+			float2 frontBack = lerp((topDown).xy,(topDown).zw,(f).y);
+			temp_y = lerp((frontBack).x,(frontBack).y,(f).z);
 		}
-		_fx = (0.01f) * (__temp_y);
+		fx = (0.03f) * (temp_y);
 	}
-	float _fy;
+	float fy;
 	{
-		float __temp_y;
+		float temp_y;
 		{
-			float ___x;
+			float3 pos = ((localPos) + (dy)) * (10.0f);
+			float3 P = (fmod(floor(pos),256.0f)) / (256.0f);
+			float3 p = (pos) - (floor(pos));
+			float one = (1.0f) / (256.0f);
+			float3 f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+			float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+			float4 left;
 			{
-				float ____temp_y;
+				float temp_x;
 				{
-					float _____temp_y;
-					{
-						float ______W = 800.0f;
-						float ______t = -0.5f;
-						float ______f = 1.0f;
-
-						for (int i=1; i <= 7; i++)
-						{
-							float ______p;
-							{
-								float3 ________pos = ((localPos) + (_dy)) * (______f);
-								float3 ________P = (fmod(floor(________pos),256.0f)) / (256.0f);
-								float3 ________p = (________pos) - (floor(________pos));
-								float ________one = (1.0f) / (256.0f);
-								float3 ________f = (((________p) * (________p)) * (________p)) * (((________p) * (((________p) * (6.0f)) - (15.0f))) + (10.0f));
-								float4 ________AA = (permutation.Sample(pointSampler,(________P).xy)) + ((________P).z);
-								float4 ________left;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).x);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).x) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).y);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).y) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,1.0f)));
-									}
-									________left = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________right;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).z);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).z) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).w);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).w) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,1.0f)));
-									}
-									________right = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________topDown = lerp(________left,________right,(________f).x);
-								float2 ________frontBack = lerp((________topDown).xy,(________topDown).zw,(________f).y);
-								______p = lerp((________frontBack).x,(________frontBack).y,(________f).z);
-							}
-							float ______n = abs(______p);
-							______t = float ______temp_y;
-							{
-								float _______temp_x;
-								{
-									float ________temp_value;
-									{
-										float3 _________P = (fmod(floor(((localPos) + (_dy)) * (______f)),256.0f)) / (256.0f);
-										float3 _________p = (((localPos) + (_dy)) * (______f)) - (floor(((localPos) + (_dy)) * (______f)));
-										float _________one = (1.0f) / (256.0f);
-										float3 _________f = (((_________p) * (_________p)) * (_________p)) * (((_________p) * (((_________p) * (6.0f)) - (15.0f))) + (10.0f));
-										float4 _________AA = (permutation.Sample(pointSampler,(_________P).xy)) + ((_________P).z);
-										float4 _________left;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).x);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).x) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).y);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).y) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,1.0f)));
-											}
-											_________left = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________right;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).z);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).z) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).w);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).w) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,1.0f)));
-											}
-											_________right = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________topDown = lerp(_________left,_________right,(_________f).x);
-										float2 _________frontBack = lerp((_________topDown).xy,(_________topDown).zw,(_________f).y);
-										________temp_value = lerp((_________frontBack).x,(_________frontBack).y,(_________f).z);
-									}
-									_______temp_x = abs(________temp_value);
-								}
-								______temp_y = (_______temp_x) / (______f);
-							}
-							(______t) + (______temp_y);;
-							______f =  (______f) * (2.0f);;
-							;
-						};_____temp_y = ______t;
-					}
-					____temp_y = (2.0f) * (_____temp_y);
+					float4 grad = gradients.Sample(pointSampler,(AA).x);
+					temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
 				}
-				___x = (((localPos) + (_dy)).x) + (____temp_y);
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).y);
+					temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+				}
+				left = float4(temp_x,_temp_y,temp_z,temp_w);
 			}
-			float ___f = 1.6f;
-			float ___PI = 3.141593f;
-			float ___t = (0.5f) + ((0.5f) * (sin((((___f) * (2.0f)) * (___PI)) * (___x))));
-			__temp_y = ((___t) * (___t)) - (0.5f);
+			float4 right;
+			{
+				float temp_x;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).z);
+					temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+				}
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).w);
+					temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+				}
+				right = float4(temp_x,_temp_y,temp_z,temp_w);
+			}
+			float4 topDown = lerp(left,right,(f).x);
+			float2 frontBack = lerp((topDown).xy,(topDown).zw,(f).y);
+			temp_y = lerp((frontBack).x,(frontBack).y,(f).z);
 		}
-		_fy = (0.01f) * (__temp_y);
+		fy = (0.03f) * (temp_y);
 	}
-	float _fz;
+	float fz;
 	{
-		float __temp_y;
+		float temp_y;
 		{
-			float ___x;
+			float3 pos = ((localPos) + (dz)) * (10.0f);
+			float3 P = (fmod(floor(pos),256.0f)) / (256.0f);
+			float3 p = (pos) - (floor(pos));
+			float one = (1.0f) / (256.0f);
+			float3 f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+			float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+			float4 left;
 			{
-				float ____temp_y;
+				float temp_x;
 				{
-					float _____temp_y;
-					{
-						float ______W = 800.0f;
-						float ______t = -0.5f;
-						float ______f = 1.0f;
-
-						for (int i=1; i <= 7; i++)
-						{
-							float ______p;
-							{
-								float3 ________pos = ((localPos) + (_dz)) * (______f);
-								float3 ________P = (fmod(floor(________pos),256.0f)) / (256.0f);
-								float3 ________p = (________pos) - (floor(________pos));
-								float ________one = (1.0f) / (256.0f);
-								float3 ________f = (((________p) * (________p)) * (________p)) * (((________p) * (((________p) * (6.0f)) - (15.0f))) + (10.0f));
-								float4 ________AA = (permutation.Sample(pointSampler,(________P).xy)) + ((________P).z);
-								float4 ________left;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).x);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).x) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(0.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).y);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).y) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(0.0f,1.0f,1.0f)));
-									}
-									________left = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________right;
-								{
-									float ________temp_x;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).z);
-										________temp_x = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,0.0f)));
-									}
-									float ________temp_y;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).z) + (________one));
-										________temp_y = dot((____________grad).xyz,(________p) - (float3(1.0f,0.0f,1.0f)));
-									}
-									float ________temp_z;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,(________AA).w);
-										________temp_z = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,0.0f)));
-									}
-									float ________temp_w;
-									{
-										float4 ____________grad = gradients.Sample(pointSampler,((________AA).w) + (________one));
-										________temp_w = dot((____________grad).xyz,(________p) - (float3(1.0f,1.0f,1.0f)));
-									}
-									________right = float4(________temp_x,________temp_y,________temp_z,________temp_w);
-								}
-								float4 ________topDown = lerp(________left,________right,(________f).x);
-								float2 ________frontBack = lerp((________topDown).xy,(________topDown).zw,(________f).y);
-								______p = lerp((________frontBack).x,(________frontBack).y,(________f).z);
-							}
-							float ______n = abs(______p);
-							______t = float ______temp_y;
-							{
-								float _______temp_x;
-								{
-									float ________temp_value;
-									{
-										float3 _________P = (fmod(floor(((localPos) + (_dz)) * (______f)),256.0f)) / (256.0f);
-										float3 _________p = (((localPos) + (_dz)) * (______f)) - (floor(((localPos) + (_dz)) * (______f)));
-										float _________one = (1.0f) / (256.0f);
-										float3 _________f = (((_________p) * (_________p)) * (_________p)) * (((_________p) * (((_________p) * (6.0f)) - (15.0f))) + (10.0f));
-										float4 _________AA = (permutation.Sample(pointSampler,(_________P).xy)) + ((_________P).z);
-										float4 _________left;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).x);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).x) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(0.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).y);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).y) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(0.0f,1.0f,1.0f)));
-											}
-											_________left = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________right;
-										{
-											float __________temp_x;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).z);
-												__________temp_x = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,0.0f)));
-											}
-											float __________temp_y;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).z) + (_________one));
-												__________temp_y = dot((_____________grad).xyz,(_________p) - (float3(1.0f,0.0f,1.0f)));
-											}
-											float __________temp_z;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,(_________AA).w);
-												__________temp_z = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,0.0f)));
-											}
-											float __________temp_w;
-											{
-												float4 _____________grad = gradients.Sample(pointSampler,((_________AA).w) + (_________one));
-												__________temp_w = dot((_____________grad).xyz,(_________p) - (float3(1.0f,1.0f,1.0f)));
-											}
-											_________right = float4(__________temp_x,__________temp_y,__________temp_z,__________temp_w);
-										}
-										float4 _________topDown = lerp(_________left,_________right,(_________f).x);
-										float2 _________frontBack = lerp((_________topDown).xy,(_________topDown).zw,(_________f).y);
-										________temp_value = lerp((_________frontBack).x,(_________frontBack).y,(_________f).z);
-									}
-									_______temp_x = abs(________temp_value);
-								}
-								______temp_y = (_______temp_x) / (______f);
-							}
-							(______t) + (______temp_y);;
-							______f =  (______f) * (2.0f);;
-							;
-						};_____temp_y = ______t;
-					}
-					____temp_y = (2.0f) * (_____temp_y);
+					float4 grad = gradients.Sample(pointSampler,(AA).x);
+					temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
 				}
-				___x = (((localPos) + (_dz)).x) + (____temp_y);
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).y);
+					temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+				}
+				left = float4(temp_x,_temp_y,temp_z,temp_w);
 			}
-			float ___f = 1.6f;
-			float ___PI = 3.141593f;
-			float ___t = (0.5f) + ((0.5f) * (sin((((___f) * (2.0f)) * (___PI)) * (___x))));
-			__temp_y = ((___t) * (___t)) - (0.5f);
+			float4 right;
+			{
+				float temp_x;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).z);
+					temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+				}
+				float _temp_y;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+					_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+				}
+				float temp_z;
+				{
+					float4 grad = gradients.Sample(pointSampler,(AA).w);
+					temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+				}
+				float temp_w;
+				{
+					float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+					temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+				}
+				right = float4(temp_x,_temp_y,temp_z,temp_w);
+			}
+			float4 topDown = lerp(left,right,(f).x);
+			float2 frontBack = lerp((topDown).xy,(topDown).zw,(f).y);
+			temp_y = lerp((frontBack).x,(frontBack).y,(f).z);
 		}
-		_fz = (0.01f) * (__temp_y);
+		fz = (0.03f) * (temp_y);
 	}
-	float3 _dF = (float3((_fx) - (_f0),(_fy) - (_f0),(_fz) - (_f0))) / (_epsilon);
-	normal = normalize((_normal) - (_dF));
+	float3 dF = (float3((fx) - (f0),(fy) - (f0),(fz) - (f0))) / (epsilon);
+	normal = normalize((_normal) - (dF));
 }
 float3 intensity;
 {
-	float3 _worldPos = (input).PositionWS;
-	float3 _lightVec = (_worldPos) - (Light);
-	float3 _lightDir = normalize(_lightVec);
-	float _diffuse;
+	float3 lightVec = (Light) - ((input).PositionWS);
+	float3 lightDir = normalize(lightVec);
+	float lightFallOff;
 	{
-		float __lightFallOff;
-		{
-			float ___lightVecSquared = dot(_lightVec,_lightVec);
-			__lightFallOff = saturate((LightRangeSquared) / (___lightVecSquared));
-		}
-		_diffuse = saturate(mul(__lightFallOff,mul(Diffuse,dot(-(_lightDir),normal))));
+		float lightVecSquared = dot(lightVec,lightVec);
+		lightFallOff = saturate((LightRangeSquared) / (lightVecSquared));
 	}
-	float _specular = saturate(mul(Specular,pow(Shine,saturate(dot(normal,normalize((_lightDir) - (normalize((Eye) - (_worldPos)))))))));
-	intensity = saturate(((AmbientLight) + (_diffuse)) + (_specular));
+	float3 diffuse = saturate(mul(Diffuse,max(0.0f,dot(lightDir,normal))));
+	float3 specular;
+	{
+		float3 viewer = normalize((Eye) - ((input).PositionWS));
+		float3 half_vector = normalize((lightDir) + (viewer));
+		specular = saturate(mul(Specular,pow(max(0.0f,dot(normal,half_vector)),Shine)));
+	}
+	intensity = saturate(((AmbientLight) + (diffuse)) + (specular));
+}
+return float4(intensity,1.0f); };
+float4 marbled(PSInput input) : SV_TARGET{ float3 localPos = (input).PositionOS;
+float3 normal;
+{
+	float3 _normal = normalize((input).Normal);
+	float f0;
+	{
+		float temp_y;
+		{
+			float x;
+			{
+				float _temp_y;
+				{
+					float _temp_y;
+					{
+						float t = -0.5f;
+						float f = 1.0f;
+
+						for (int i=1; i <= 7; i++)
+						{
+							float n;
+							{
+								float temp_value;
+								{
+									float3 P = (fmod(floor((localPos) * (f)),256.0f)) / (256.0f);
+									float3 p = ((localPos) * (f)) - (floor((localPos) * (f)));
+									float one = (1.0f) / (256.0f);
+									float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+									float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+									float4 left;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).x);
+											temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).y);
+											temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+										}
+										left = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 right;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).z);
+											temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).w);
+											temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+										}
+										right = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 topDown = lerp(left,right,(_f).x);
+									float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+									temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+								}
+								n = abs(temp_value);
+							}
+							t =  (t) + ((n) / (f));
+							f =  (f) * (2.0f);
+							;
+						};_temp_y = t;
+					}
+					_temp_y = (2.0f) * (_temp_y);
+				}
+				x = ((localPos).x) + (_temp_y);
+			}
+			float f = 1.6f;
+			float PI = 3.141593f;
+			float t = (0.5f) + ((0.5f) * (sin((((f) * (2.0f)) * (PI)) * (x))));
+			temp_y = ((t) * (t)) - (0.5f);
+		}
+		f0 = (0.01f) * (temp_y);
+	}
+	float epsilon = 0.00001f;
+	float3 dx = float3(epsilon,0.0f,0.0f);
+	float3 dy = float3(0.0f,epsilon,0.0f);
+	float3 dz = float3(0.0f,0.0f,epsilon);
+	float fx;
+	{
+		float temp_y;
+		{
+			float x;
+			{
+				float _temp_y;
+				{
+					float _temp_y;
+					{
+						float t = -0.5f;
+						float f = 1.0f;
+
+						for (int i=1; i <= 7; i++)
+						{
+							float n;
+							{
+								float temp_value;
+								{
+									float3 P = (fmod(floor(((localPos) + (dx)) * (f)),256.0f)) / (256.0f);
+									float3 p = (((localPos) + (dx)) * (f)) - (floor(((localPos) + (dx)) * (f)));
+									float one = (1.0f) / (256.0f);
+									float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+									float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+									float4 left;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).x);
+											temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).y);
+											temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+										}
+										left = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 right;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).z);
+											temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).w);
+											temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+										}
+										right = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 topDown = lerp(left,right,(_f).x);
+									float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+									temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+								}
+								n = abs(temp_value);
+							}
+							t =  (t) + ((n) / (f));
+							f =  (f) * (2.0f);
+							;
+						};_temp_y = t;
+					}
+					_temp_y = (2.0f) * (_temp_y);
+				}
+				x = (((localPos) + (dx)).x) + (_temp_y);
+			}
+			float f = 1.6f;
+			float PI = 3.141593f;
+			float t = (0.5f) + ((0.5f) * (sin((((f) * (2.0f)) * (PI)) * (x))));
+			temp_y = ((t) * (t)) - (0.5f);
+		}
+		fx = (0.01f) * (temp_y);
+	}
+	float fy;
+	{
+		float temp_y;
+		{
+			float x;
+			{
+				float _temp_y;
+				{
+					float _temp_y;
+					{
+						float t = -0.5f;
+						float f = 1.0f;
+
+						for (int i=1; i <= 7; i++)
+						{
+							float n;
+							{
+								float temp_value;
+								{
+									float3 P = (fmod(floor(((localPos) + (dy)) * (f)),256.0f)) / (256.0f);
+									float3 p = (((localPos) + (dy)) * (f)) - (floor(((localPos) + (dy)) * (f)));
+									float one = (1.0f) / (256.0f);
+									float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+									float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+									float4 left;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).x);
+											temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).y);
+											temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+										}
+										left = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 right;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).z);
+											temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).w);
+											temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+										}
+										right = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 topDown = lerp(left,right,(_f).x);
+									float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+									temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+								}
+								n = abs(temp_value);
+							}
+							t =  (t) + ((n) / (f));
+							f =  (f) * (2.0f);
+							;
+						};_temp_y = t;
+					}
+					_temp_y = (2.0f) * (_temp_y);
+				}
+				x = (((localPos) + (dy)).x) + (_temp_y);
+			}
+			float f = 1.6f;
+			float PI = 3.141593f;
+			float t = (0.5f) + ((0.5f) * (sin((((f) * (2.0f)) * (PI)) * (x))));
+			temp_y = ((t) * (t)) - (0.5f);
+		}
+		fy = (0.01f) * (temp_y);
+	}
+	float fz;
+	{
+		float temp_y;
+		{
+			float x;
+			{
+				float _temp_y;
+				{
+					float _temp_y;
+					{
+						float t = -0.5f;
+						float f = 1.0f;
+
+						for (int i=1; i <= 7; i++)
+						{
+							float n;
+							{
+								float temp_value;
+								{
+									float3 P = (fmod(floor(((localPos) + (dz)) * (f)),256.0f)) / (256.0f);
+									float3 p = (((localPos) + (dz)) * (f)) - (floor(((localPos) + (dz)) * (f)));
+									float one = (1.0f) / (256.0f);
+									float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+									float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+									float4 left;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).x);
+											temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).y);
+											temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+										}
+										left = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 right;
+									{
+										float temp_x;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).z);
+											temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+										}
+										float _temp_y;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+											_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+										}
+										float temp_z;
+										{
+											float4 grad = gradients.Sample(pointSampler,(AA).w);
+											temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+										}
+										float temp_w;
+										{
+											float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+											temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+										}
+										right = float4(temp_x,_temp_y,temp_z,temp_w);
+									}
+									float4 topDown = lerp(left,right,(_f).x);
+									float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+									temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+								}
+								n = abs(temp_value);
+							}
+							t =  (t) + ((n) / (f));
+							f =  (f) * (2.0f);
+							;
+						};_temp_y = t;
+					}
+					_temp_y = (2.0f) * (_temp_y);
+				}
+				x = (((localPos) + (dz)).x) + (_temp_y);
+			}
+			float f = 1.6f;
+			float PI = 3.141593f;
+			float t = (0.5f) + ((0.5f) * (sin((((f) * (2.0f)) * (PI)) * (x))));
+			temp_y = ((t) * (t)) - (0.5f);
+		}
+		fz = (0.01f) * (temp_y);
+	}
+	float3 dF = (float3((fx) - (f0),(fy) - (f0),(fz) - (f0))) / (epsilon);
+	normal = normalize((_normal) - (dF));
+}
+float3 intensity;
+{
+	float3 lightVec = (Light) - ((input).PositionWS);
+	float3 lightDir = normalize(lightVec);
+	float lightFallOff;
+	{
+		float lightVecSquared = dot(lightVec,lightVec);
+		lightFallOff = saturate((LightRangeSquared) / (lightVecSquared));
+	}
+	float3 diffuse = saturate(mul(Diffuse,max(0.0f,dot(lightDir,normal))));
+	float3 specular;
+	{
+		float3 viewer = normalize((Eye) - ((input).PositionWS));
+		float3 half_vector = normalize((lightDir) + (viewer));
+		specular = saturate(mul(Specular,pow(max(0.0f,dot(normal,half_vector)),Shine)));
+	}
+	intensity = saturate(((AmbientLight) + (diffuse)) + (specular));
+}
+return float4(intensity,1.0f); };
+float4 crinkled(PSInput input) : SV_TARGET{ float3 localPos = (input).PositionOS;
+float3 normal;
+{
+	float3 _normal = normalize((input).Normal);
+	float f0;
+	{
+		float temp_y;
+		{
+			float t = -0.5f;
+			float f = 1.0f;
+
+			for (int i=1; i <= 7; i++)
+			{
+				float n;
+				{
+					float temp_value;
+					{
+						float3 P = (fmod(floor((localPos) * (f)),256.0f)) / (256.0f);
+						float3 p = ((localPos) * (f)) - (floor((localPos) * (f)));
+						float one = (1.0f) / (256.0f);
+						float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+						float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+						float4 left;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).x);
+								temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).y);
+								temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+							}
+							left = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 right;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).z);
+								temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).w);
+								temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+							}
+							right = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 topDown = lerp(left,right,(_f).x);
+						float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+						temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+					}
+					n = abs(temp_value);
+				}
+				t =  (t) + ((n) / (f));
+				f =  (f) * (2.0f);
+				;
+			};temp_y = t;
+		}
+		f0 = (-0.15f) * (temp_y);
+	}
+	float epsilon = 0.00001f;
+	float3 dx = float3(epsilon,0.0f,0.0f);
+	float3 dy = float3(0.0f,epsilon,0.0f);
+	float3 dz = float3(0.0f,0.0f,epsilon);
+	float fx;
+	{
+		float temp_y;
+		{
+			float t = -0.5f;
+			float f = 1.0f;
+
+			for (int i=1; i <= 7; i++)
+			{
+				float n;
+				{
+					float temp_value;
+					{
+						float3 P = (fmod(floor(((localPos) + (dx)) * (f)),256.0f)) / (256.0f);
+						float3 p = (((localPos) + (dx)) * (f)) - (floor(((localPos) + (dx)) * (f)));
+						float one = (1.0f) / (256.0f);
+						float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+						float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+						float4 left;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).x);
+								temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).y);
+								temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+							}
+							left = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 right;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).z);
+								temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).w);
+								temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+							}
+							right = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 topDown = lerp(left,right,(_f).x);
+						float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+						temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+					}
+					n = abs(temp_value);
+				}
+				t =  (t) + ((n) / (f));
+				f =  (f) * (2.0f);
+				;
+			};temp_y = t;
+		}
+		fx = (-0.15f) * (temp_y);
+	}
+	float fy;
+	{
+		float temp_y;
+		{
+			float t = -0.5f;
+			float f = 1.0f;
+
+			for (int i=1; i <= 7; i++)
+			{
+				float n;
+				{
+					float temp_value;
+					{
+						float3 P = (fmod(floor(((localPos) + (dy)) * (f)),256.0f)) / (256.0f);
+						float3 p = (((localPos) + (dy)) * (f)) - (floor(((localPos) + (dy)) * (f)));
+						float one = (1.0f) / (256.0f);
+						float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+						float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+						float4 left;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).x);
+								temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).y);
+								temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+							}
+							left = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 right;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).z);
+								temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).w);
+								temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+							}
+							right = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 topDown = lerp(left,right,(_f).x);
+						float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+						temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+					}
+					n = abs(temp_value);
+				}
+				t =  (t) + ((n) / (f));
+				f =  (f) * (2.0f);
+				;
+			};temp_y = t;
+		}
+		fy = (-0.15f) * (temp_y);
+	}
+	float fz;
+	{
+		float temp_y;
+		{
+			float t = -0.5f;
+			float f = 1.0f;
+
+			for (int i=1; i <= 7; i++)
+			{
+				float n;
+				{
+					float temp_value;
+					{
+						float3 P = (fmod(floor(((localPos) + (dz)) * (f)),256.0f)) / (256.0f);
+						float3 p = (((localPos) + (dz)) * (f)) - (floor(((localPos) + (dz)) * (f)));
+						float one = (1.0f) / (256.0f);
+						float3 _f = (((p) * (p)) * (p)) * (((p) * (((p) * (6.0f)) - (15.0f))) + (10.0f));
+						float4 AA = (permutation.Sample(pointSampler,(P).xy)) + ((P).z);
+						float4 left;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).x);
+								temp_x = dot((grad).xyz,(p) - (float3(0.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).x) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(0.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).y);
+								temp_z = dot((grad).xyz,(p) - (float3(0.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).y) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(0.0f,1.0f,1.0f)));
+							}
+							left = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 right;
+						{
+							float temp_x;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).z);
+								temp_x = dot((grad).xyz,(p) - (float3(1.0f,0.0f,0.0f)));
+							}
+							float _temp_y;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).z) + (one));
+								_temp_y = dot((grad).xyz,(p) - (float3(1.0f,0.0f,1.0f)));
+							}
+							float temp_z;
+							{
+								float4 grad = gradients.Sample(pointSampler,(AA).w);
+								temp_z = dot((grad).xyz,(p) - (float3(1.0f,1.0f,0.0f)));
+							}
+							float temp_w;
+							{
+								float4 grad = gradients.Sample(pointSampler,((AA).w) + (one));
+								temp_w = dot((grad).xyz,(p) - (float3(1.0f,1.0f,1.0f)));
+							}
+							right = float4(temp_x,_temp_y,temp_z,temp_w);
+						}
+						float4 topDown = lerp(left,right,(_f).x);
+						float2 frontBack = lerp((topDown).xy,(topDown).zw,(_f).y);
+						temp_value = lerp((frontBack).x,(frontBack).y,(_f).z);
+					}
+					n = abs(temp_value);
+				}
+				t =  (t) + ((n) / (f));
+				f =  (f) * (2.0f);
+				;
+			};temp_y = t;
+		}
+		fz = (-0.15f) * (temp_y);
+	}
+	float3 dF = (float3((fx) - (f0),(fy) - (f0),(fz) - (f0))) / (epsilon);
+	normal = normalize((_normal) - (dF));
+}
+float3 intensity;
+{
+	float3 lightVec = (Light) - ((input).PositionWS);
+	float3 lightDir = normalize(lightVec);
+	float lightFallOff;
+	{
+		float lightVecSquared = dot(lightVec,lightVec);
+		lightFallOff = saturate((LightRangeSquared) / (lightVecSquared));
+	}
+	float3 diffuse = saturate(mul(Diffuse,max(0.0f,dot(lightDir,normal))));
+	float3 specular;
+	{
+		float3 viewer = normalize((Eye) - ((input).PositionWS));
+		float3 half_vector = normalize((lightDir) + (viewer));
+		specular = saturate(mul(Specular,pow(max(0.0f,dot(normal,half_vector)),Shine)));
+	}
+	intensity = saturate(((AmbientLight) + (diffuse)) + (specular));
 }
 return float4(intensity,1.0f); };
 'PerlinNoise.exe' (Managed (v4.0.30319)): Loaded 'C:\Users\Johan\SkyDrive\Coding\SharpShaders\Samples\PerlinNoise\bin\Debug\SharpDX.D3DCompiler.dll'
 	A first chance exception of type 'SharpDX.SharpDXException' occurred in SharpDX.dll
 	A first chance exception of type 'SharpDX.CompilationException' occurred in SharpDX.D3DCompiler.dll
 	'PerlinNoise.exe' (Managed (v4.0.30319)): Loaded 'C:\WINDOWS\assembly\GAC_MSIL\Microsoft.VisualStudio.Debugger.Runtime\11.0.0.0__b03f5f7f11d50a3a\Microsoft.VisualStudio.Debugger.Runtime.dll'
-	The program '[7068] PerlinNoise.exe: Program Trace' has exited with code 0 (0x0).
-	The program '[7068] PerlinNoise.exe: Managed (v4.0.30319)' has exited with code -1 (0xffffffff).

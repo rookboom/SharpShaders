@@ -12,7 +12,7 @@ module Math =
     let inline subtractFrom a b = a - b
     let inline subtract a b = b - a
     let inline mul a b = a * b
-    let inline pow a b = Math.Pow(float a,float b) |> float32
+    let inline pow p v = Math.Pow(float v,float p) |> float32
     let pi = float32(Math.PI)
 
     type System.Single with
@@ -84,6 +84,7 @@ module Math =
         static member zero = float3(0.0f,0.0f,0.0f)
        
     let dot(v1:float3) (v2:float3) = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z
+    let reflect(i:float3) (n:float3) = 2.0f*i*(dot i n) - i
     let inline normalize< ^T when ^T :(member normalize : unit -> ^T)> (x:^T) =
         (^T : (member normalize : unit -> ^T) (x))
     let inline floor< ^T when ^T :(member floor : unit -> ^T)> (x:^T) =

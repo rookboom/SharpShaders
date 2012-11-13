@@ -28,8 +28,7 @@ module BlinnPhong =
         member m.LightRangeSquared = lightRangeSquared
         
     [<Struct; ConstantPacking>]
-    type MaterialConstants(ambient:float32, diffuse:float32, specular:float32,shine:float32)  =
-        member m.Ambient = ambient
+    type MaterialConstants(diffuse:float3, specular:float3,shine:float32)  =
         member m.Diffuse = diffuse
         member m.Specular = specular
         member m.Shine = shine
@@ -53,31 +52,35 @@ module BlinnPhong =
         member m.UV = uv
 
     [<ReflectedDefinition>]
-    let intensity (scene:SceneConstants) (mat:MaterialConstants) worldPos normal =
-        let lightVec = worldPos - scene.Light
+    let surfaceColor (scene:SceneConstants) (mat:MaterialConstants) worldPos normal =
+
+        let lightVec = scene.Light - worldPos 
         let lightDir = normalize lightVec
+        let lightFallOff = 
+            let lightVecSquared = (lightVec |> dot lightVec)
+            scene.LightRangeSquared/lightVecSquared
+            |> saturatef
         let diffuse = 
-            let lightFallOff = 
-                let lightVecSquared = (lightVec |> dot lightVec)
-                scene.LightRangeSquared/lightVecSquared
-                |> saturatef
             normal 
-            |> dot -lightDir
+            |> dot lightDir
+            |> max 0.0f
             |> mul mat.Diffuse
             |> mul lightFallOff
-            |> saturatef
-        let specular = scene.Eye - worldPos
-                        |> normalize
-                        |> subtractFrom lightDir
-                        |> normalize
-                        |> dot normal
-                        |> saturatef
-                        |> pow mat.Shine
-                        |> mul mat.Specular
-                        |> saturatef
+            |> saturate
+        let specular = 
+            let viewer = scene.Eye - worldPos
+                         |> normalize
+            let half_vector = (lightDir + viewer)
+                              |> normalize
+            half_vector 
+            |> dot normal
+            |> max 0.0f
+            |> pow mat.Shine
+            |> mul mat.Specular
+            |> mul lightFallOff
+            |> saturate
 
-        let lightColor = float3(1.0f,1.0f,1.0f)
-        scene.AmbientLight + (diffuse + specular)*lightColor
+        scene.AmbientLight + diffuse + specular
         |> saturate
 
     [<ReflectedDefinition>]
@@ -98,10 +101,10 @@ module BlinnPhong =
         [<PixelShader>]
         member m.pixel(input:PSInput) =
             let tex = diffuseTexture.Sample(linearSampler, input.UV)
-            let surface = intensity scene
-                                    mat
-                                    input.PositionWS
-                                    (normalize input.Normal)
+            let surface = surfaceColor  scene
+                                        mat
+                                        input.PositionWS
+                                        (normalize input.Normal)
                                     
             let color = tex.rgb * surface 
             float4(color, 1.0f)
