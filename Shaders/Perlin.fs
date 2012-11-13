@@ -97,7 +97,7 @@ module PerlinTexture =
         let permGrad x y = float4(gradients.[(perm x) % 16], 1.0f)
         Array2D.init 256 1 permGrad
 
-module Marble =
+module Perlin =
     [<Struct; ConstantPacking>]
     type MaterialConstants(octaves:int32, initialFrequency:float32, amplitude:float32,lacunarity:float32)  =
         member m.Octaves = octaves
@@ -190,24 +190,23 @@ module Marble =
                 f <- f*2.0f
             t
 
-        let bump F pos normal =
-            let f0 = F(pos)
-            let epsilon = 0.01f
-            let dx = float3(epsilon,0.0f,0.0f)
-            let dy = float3(0.0f,epsilon,0.0f)
-            let dz = float3(0.0f,0.0f,epsilon)
-            let fx = F(pos + dx)
-            let fy = F(pos + dy)
-            let fz = F(pos + dz)
-            let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
-            normal - dF|> normalize
-            
-        let surface F (input:PSInput) =
-            let localPos = input.PositionOS
+        let bump F (input:PSInput) =
+            let perturbedNormal =
+                let normal = input.Normal |> normalize
+                let pos = input.PositionOS
+                let f0 = F(pos)
+                let epsilon = 0.01f
+                let dx = float3(epsilon,0.0f,0.0f)
+                let dy = float3(0.0f,epsilon,0.0f)
+                let dz = float3(0.0f,0.0f,epsilon)
+                let fx = F(pos + dx)
+                let fy = F(pos + dy)
+                let fz = F(pos + dz)
+                let dF = float3(fx-f0,fy-f0,fz-f0)/epsilon
+                normal - dF|> normalize
 
-            let normal = bump F localPos (normalize input.Normal)
-            let intensity = BlinnPhong.surfaceColor scene mat input.PositionWS normal
-            float4(intensity, 1.0f)
+            let color = BlinnPhong.surfaceColor scene mat input.PositionWS perturbedNormal
+            float4(color, 1.0f)
 
         // If needed we can use a 3D texture lookup instead. Do some performance profiling to see the difference
         member m.noise3D() =
@@ -229,20 +228,14 @@ module Marble =
                     input.Normal * float3x3(obj.World ))   
 
         [<PixelShader>]
-        member m.lumpy(input:PSInput) =
-            let lumpy(pos:float3) = 
-                0.03f*perlin(pos*10.0f)
-            surface lumpy input
+        member m.lumpy input =
+            bump(fun pos -> 0.03f*perlin(pos*10.0f)) input
 
         [<PixelShader>]
-        member m.marbled(input:PSInput) =
-            let marbled(pos:float3) = 
-                0.01f*stripes (pos.x + 2.0f*turbulance(pos)) 1.6f
-            surface marbled input
+        member m.marbled input =
+            bump(fun pos -> 0.01f*stripes (pos.x + 2.0f*turbulance(pos)) 1.6f) input
 
         [<PixelShader>]
-        member m.crinkled(input:PSInput) =
-            let crinkled(pos:float3) = 
-                -0.15f*turbulance pos
-            surface crinkled input
+        member m.crinkled input =
+            bump(fun pos -> -0.15f*turbulance pos) input
     

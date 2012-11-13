@@ -16,7 +16,7 @@ let saveNoiseSlice =
         let shade = int((c+1.0f)/2.0f*255.0f)
         bmp.SetPixel(i, j, Color.FromArgb(255, shade, shade, shade))
 
-    let marbleShader = Marble.Shader(BlinnPhong.SceneConstants(),
+    let marbleShader = Perlin.Shader(BlinnPhong.SceneConstants(),
                                      BlinnPhong.ObjectConstants(),
                                      BlinnPhong.MaterialConstants(),
                                      CpuTexture2D(PerlinTexture.permutation2D),
@@ -30,7 +30,7 @@ let saveNoiseSlice =
 
 let run() = 
 
-    let hlsl = ShaderTranslator.toHLSL typeof<Marble.Shader>
+    let hlsl = ShaderTranslator.toHLSL typeof<Perlin.Shader>
     let inputElements = 
         InputElements.map typeof<Vertex> typeof<Diffuse.VSInput>
         |> Seq.toArray

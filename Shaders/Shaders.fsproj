@@ -57,7 +57,7 @@
     <Compile Include="Simplistic.fs" />
     <Compile Include="BlinnPhong.fs" />
     <Compile Include="Diffuse.fs" />
-    <Compile Include="Marble.fs" />
+    <Compile Include="Perlin.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Translator\SharpShaders.fsproj">

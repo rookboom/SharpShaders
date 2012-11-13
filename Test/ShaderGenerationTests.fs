@@ -30,7 +30,6 @@ type TestVertex(p:Vector3, n:Vector3, uv:Vector2) =
 type TestShaderWithSingleLineLookup(mat:Simplistic.MaterialConstants) =
     [<PixelShader>]
     member m.pixel(input:Simplistic.PSInput) = mat.MaterialDiffuse
-
 //=======================================================================================
 [<ReflectedDefinition>]
 type TestShaderEndingWithLookup(mat:Simplistic.MaterialConstants) =
@@ -124,7 +123,7 @@ float3 color(float x, float y, float z)
         | _ -> failwith "Expected exactly 2 shader methods" *)
 
     [<Fact>]
-    let ``Should use multiplication insteadofmul operator for scalar types``() =
+    let ``Should use multiplication instead of mul operator for scalar types``() =
         let expr = <@ let x = 1.0f * float3(1.0f,1.0f, 1.0f)
                       x @>
         Assert.EqualIgnoreWhitespace(@"
