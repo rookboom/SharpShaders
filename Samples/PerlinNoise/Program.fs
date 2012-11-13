@@ -45,7 +45,7 @@ let run() =
         let gray = float3(0.5f,0.5f,0.5f)
 
         BlinnPhong.SceneConstants(float3(eye), float3(light), float3(0.1f,0.1f,0.1f), 100.0f),
-        BlinnPhong.MaterialConstants(darkGreen, gray, 50.0f),
+        BlinnPhong.MaterialConstants(darkBlue, gray, 50.0f),
         BlinnPhong.ObjectConstants(fromMatrix(Matrix.Identity),
                                    fromMatrix(Matrix.Identity))
 
@@ -53,7 +53,7 @@ let run() =
     let updateObjectConstants = 
         renderer.createVertexShader hlsl inputElements objectConstants
     let updateOtherConstants =
-        renderer.createPixelShaderWithEntry "crinkled" hlsl (sceneConstants, matConstants)
+        renderer.createPixelShaderWithEntry "marbled" hlsl (sceneConstants, matConstants)
 
     let pointSampler = 
         let desc = SamplerStateDescription( Filter = Filter.MinMagMipPoint,
