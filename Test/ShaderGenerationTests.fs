@@ -1,4 +1,6 @@
-﻿namespace Flow.Test
+﻿(* Copyright (c) 2012 SharpShaders - Johan Verwey
+   See the file license.txt for copying permission. *)
+namespace Flow.Test
 
 open Xunit
 open SharpShaders

@@ -1,4 +1,6 @@
-﻿open SharpShaders
+﻿(* Copyright (c) 2012 SharpShaders - Johan Verwey
+   See the file license.txt for copying permission. *)
+open SharpShaders
 open SharpShaders.Math
 open SharpShaders.Shaders
 open SharpDX.Windows

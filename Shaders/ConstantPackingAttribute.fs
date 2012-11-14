@@ -1,4 +1,6 @@
-﻿namespace SharpShaders
+﻿(* Copyright (c) 2012 SharpShaders - Johan Verwey
+   See the file license.txt for copying permission. *)
+namespace SharpShaders
 
 open System
 open System.Collections.Generic
