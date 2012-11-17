@@ -50,7 +50,7 @@ module Diffuse =
 
         [<PixelShader>]
         member m.pixel(input:PSInput) =
-            let final = color scene.LightDirection mat.Diffuse input.Normal
-            float4(final, 1.0f)
+            color scene.LightDirection mat.Diffuse input.Normal
+            |> withAlpha 1.0f
 
 
