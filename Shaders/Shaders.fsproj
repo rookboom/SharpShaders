@@ -35,6 +35,7 @@
     <OtherFlags>--nowarn:9</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="FSharp.Core, Version=4.3.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a" />
     <Reference Include="mscorlib" />
     <Reference Include="PostSharp">
       <HintPath>..\External\PostSharp\PostSharp.dll</HintPath>
